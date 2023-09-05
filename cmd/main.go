@@ -6,7 +6,10 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"time"
+
+	"github.com/joho/godotenv"
 
 	"github.com/golden-vcr/tapes/internal/config"
 	"github.com/golden-vcr/tapes/internal/sheets"
@@ -26,6 +29,11 @@ func handleTapes(client *sheets.Client, res http.ResponseWriter, req *http.Reque
 }
 
 func main() {
+	err := godotenv.Load()
+	if err != nil && !os.IsNotExist(err) {
+		log.Fatalf("error loading .env file: %v", err)
+	}
+
 	vars, err := config.LoadVars()
 	if err != nil {
 		log.Fatalf("error parsing config vars: %v", err)
