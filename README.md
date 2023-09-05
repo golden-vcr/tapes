@@ -18,11 +18,14 @@ go version go1.21.0 windows/amd64
 
 ## Running
 
-Run `go run cmd/main.go` to start the server.
-
-If successful, you should be able to run:
+Define the environment variables required in [`config.go`](./internal/config/config.go),
+then build and run the program:
 
 ```
-> curl http://localhost/echo
-echo!
+export SHEETS_API_KEY="..."
+export SPREADSHEET_ID="1cR9Lbw9_VGQcEn8eGD2b5MwGRGzKugKZ9PVFkrqmA7k"
+go run cmd/main.go
 ```
+
+If successful, you should be able to run `curl http://localhost:5000/tapes` and get a
+JSON array containing tape data fetched from the configured spreadsheet.
