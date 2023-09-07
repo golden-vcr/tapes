@@ -25,7 +25,7 @@ type TapeListingItem struct {
 	Id                     int      `json:"id"`
 	Title                  string   `json:"title"`
 	Year                   int      `json:"year"`
-	RuntimeMinutes         int      `json:"runtime"`
+	RuntimeMinutes         int      `json:"runtimeMinutes"`
 	ThumbnailImageFilename string   `json:"thumbnailImageFilename"`
 	ImageFilenames         []string `json:"imageFilenames"`
 }
