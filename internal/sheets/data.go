@@ -9,10 +9,10 @@ import (
 type RowLookup map[int]Row
 
 type Row struct {
-	ID         int    `json:"id"`
-	Title      string `json:"title"`
-	Year       int    `json:"year"`
-	RuntimeMin int    `json:"runtime"`
+	ID         int
+	Title      string
+	Year       int
+	RuntimeMin int
 }
 
 type rowIndexMap struct {
