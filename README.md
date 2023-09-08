@@ -34,5 +34,5 @@ Once your `.env` file is populated, you should be able to build and run the serv
 
 - `go run cmd/server/main.go`
 
-If successful, you should be able to run `curl http://localhost:5000/tapes` and get a
+If successful, you should be able to run `curl http://localhost:5000/` and get a
 JSON array containing tape data fetched from the configured spreadsheet.

@@ -21,7 +21,7 @@ func New(sheetsClient *sheets.Client, bucketClient *bucket.Client) *Server {
 		bucket: bucketClient,
 	}
 	mux := http.NewServeMux()
-	mux.HandleFunc("/tapes", s.handleGetTapeListing)
+	mux.HandleFunc("/", s.handleGetTapeListing)
 	s.Handler = mux
 	return s
 }
