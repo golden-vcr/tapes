@@ -45,6 +45,11 @@ func (s *Server) handleGetTapeListing(res http.ResponseWriter, req *http.Request
 
 	items := make([]TapeListingItem, 0, len(rows))
 	for _, row := range rows {
+		color := row.Color
+		if color == "" {
+			color = "#232323"
+		}
+
 		numImages, ok := imageCounts[row.ID]
 		if !ok || numImages <= 0 {
 			continue
@@ -58,6 +63,7 @@ func (s *Server) handleGetTapeListing(res http.ResponseWriter, req *http.Request
 			Title:                  row.Title,
 			Year:                   row.Year,
 			RuntimeMinutes:         row.RuntimeMin,
+			Color:                  color,
 			ThumbnailImageFilename: bucket.GetThumbnailKey(row.ID),
 			ImageFilenames:         imageFilenames,
 		})
