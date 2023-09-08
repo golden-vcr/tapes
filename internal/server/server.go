@@ -27,6 +27,11 @@ func New(sheetsClient *sheets.Client, bucketClient *bucket.Client) *Server {
 }
 
 func (s *Server) handleGetTapeListing(res http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodGet {
+		res.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+
 	rows, err := s.sheets.ListTapes(req.Context())
 	if err != nil {
 		http.Error(res, err.Error(), http.StatusInternalServerError)

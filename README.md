@@ -24,7 +24,7 @@ go version go1.21.0 windows/amd64
 ## Running
 
 Create a file in the root of this repo called `.env` that contains the environment
-variables required in [`config.go`](./internal/config/config.go). If you have the
+variables required in [`main.go`](./cmd/server/main.go). If you have the
 [`terraform`](https://github.com/golden-vcr/terraform) repo cloned alongside this one,
 simply open a shell there and run:
 
