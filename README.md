@@ -30,9 +30,9 @@ simply open a shell there and run:
 
 - `terraform output -raw sheets_api_env > ../tapes/.env && terraform output -raw images_s3_env >> ../tapes/.env`
 
-Once your `.env` file is populated, you should be able to build and run the program:
+Once your `.env` file is populated, you should be able to build and run the server:
 
-- `go run cmd/main.go`
+- `go run cmd/server/main.go`
 
 If successful, you should be able to run `curl http://localhost:5000/tapes` and get a
 JSON array containing tape data fetched from the configured spreadsheet.
