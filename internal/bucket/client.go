@@ -3,6 +3,7 @@ package bucket
 import (
 	"context"
 	"fmt"
+	"sort"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -18,6 +19,7 @@ type Client struct {
 
 	bucketUrl string
 
+	metadata       metadataCache
 	imageCounts    map[int]int
 	expirationTime time.Time
 }
@@ -42,6 +44,7 @@ func NewClient(ctx context.Context, accessKeyId string, secretKey string, endpoi
 
 		bucketUrl: fmt.Sprintf("https://%s.%s", bucketName, endpoint),
 
+		metadata:       make(metadataCache),
 		imageCounts:    nil,
 		expirationTime: time.UnixMilli(0),
 	}
@@ -55,16 +58,39 @@ func (c *Client) GetImageHostURL() string {
 	return c.bucketUrl
 }
 
-func (c *Client) GetImageCounts(ctx context.Context) (map[int]int, error) {
-	var err error
-	if time.Now().After(c.expirationTime) {
-		err = c.updateImageCounts(ctx)
-		if err != nil && c.imageCounts != nil {
-			fmt.Printf("WARNING: Failed to fetch image counts; reusing stale data: %v", err)
-			err = nil
+func (c *Client) GetImageData(ctx context.Context) map[int][]ImageData {
+	tapeIds := make([]int, 0, len(c.imageCounts))
+	for tapeId := range c.imageCounts {
+		tapeIds = append(tapeIds, tapeId)
+	}
+	sort.Ints(tapeIds)
+
+	result := make(map[int][]ImageData)
+	for tapeId := range tapeIds {
+		numImages, ok := c.imageCounts[tapeId]
+		if ok && numImages > 0 {
+			images := make([]ImageData, 0, numImages)
+			for imageIndex := 0; imageIndex < numImages; imageIndex++ {
+				filename := GetImageKey(tapeId, imageIndex)
+				metadata, err := c.metadata.fetch(ctx, c.s3, c.bucketName, filename)
+				if err != nil || metadata == nil {
+					images = nil
+					break
+				}
+				images = append(images, ImageData{
+					Filename: filename,
+					Width:    metadata.width,
+					Height:   metadata.height,
+					Color:    metadata.color,
+					Rotated:  metadata.rotated,
+				})
+			}
+			if len(images) > 0 {
+				result[tapeId] = images
+			}
 		}
 	}
-	return c.imageCounts, err
+	return result
 }
 
 func (c *Client) fetchImageCounts(ctx context.Context) (map[int]int, error) {
@@ -107,7 +133,7 @@ func (c *Client) fetchImageCounts(ctx context.Context) (map[int]int, error) {
 			counts[tapeId] = details.maxImageIndex + 1
 		}
 	}
-	fmt.Printf("Got S3 image metadata: %d tapes have images\n", len(counts))
+	fmt.Printf("Got S3 image counts: %d tapes have images\n", len(counts))
 	return counts, nil
 }
 
@@ -118,7 +144,39 @@ func (c *Client) updateImageCounts(ctx context.Context) error {
 	}
 	c.imageCounts = counts
 	c.expirationTime = time.Now().Add(c.ttl)
+	return c.primeMetadataCache(ctx)
+}
+
+func (c *Client) primeMetadataCache(ctx context.Context) error {
+	tapeIds := make([]int, 0, len(c.imageCounts))
+	for tapeId := range c.imageCounts {
+		tapeIds = append(tapeIds, tapeId)
+	}
+	sort.Ints(tapeIds)
+
+	for _, tapeId := range tapeIds {
+		numImages := c.imageCounts[tapeId]
+		for imageIndex := 0; imageIndex < numImages; imageIndex++ {
+			key := GetImageKey(tapeId, imageIndex)
+			_, err := c.metadata.fetch(ctx, c.s3, c.bucketName, key)
+			if err != nil {
+				return err
+			}
+		}
+	}
 	return nil
+}
+
+func (c *Client) getImageCounts(ctx context.Context) (map[int]int, error) {
+	var err error
+	if time.Now().After(c.expirationTime) {
+		err = c.updateImageCounts(ctx)
+		if err != nil && c.imageCounts != nil {
+			fmt.Printf("WARNING: Failed to fetch image counts; reusing stale data: %v", err)
+			err = nil
+		}
+	}
+	return c.imageCounts, err
 }
 
 type imageDetails struct {

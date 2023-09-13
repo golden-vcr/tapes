@@ -37,11 +37,7 @@ func (s *Server) handleGetTapeListing(res http.ResponseWriter, req *http.Request
 		http.Error(res, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	imageCounts, err := s.bucket.GetImageCounts(req.Context())
-	if err != nil {
-		http.Error(res, err.Error(), http.StatusInternalServerError)
-		return
-	}
+	imageDataByTapeId := s.bucket.GetImageData(req.Context())
 
 	items := make([]TapeListingItem, 0, len(rows))
 	for _, row := range rows {
@@ -50,13 +46,19 @@ func (s *Server) handleGetTapeListing(res http.ResponseWriter, req *http.Request
 			color = "#232323"
 		}
 
-		numImages, ok := imageCounts[row.ID]
-		if !ok || numImages <= 0 {
+		imageData, ok := imageDataByTapeId[row.ID]
+		if !ok || len(imageData) == 0 {
 			continue
 		}
-		imageFilenames := make([]string, 0, numImages)
-		for imageIndex := 0; imageIndex < numImages; imageIndex++ {
-			imageFilenames = append(imageFilenames, bucket.GetImageKey(row.ID, imageIndex))
+		images := make([]TapeImageData, 0, len(imageData))
+		for i := range imageData {
+			images = append(images, TapeImageData{
+				Filename: imageData[i].Filename,
+				Width:    imageData[i].Width,
+				Height:   imageData[i].Height,
+				Color:    imageData[i].Color,
+				Rotated:  imageData[i].Rotated,
+			})
 		}
 		items = append(items, TapeListingItem{
 			Id:                     row.ID,
@@ -65,7 +67,7 @@ func (s *Server) handleGetTapeListing(res http.ResponseWriter, req *http.Request
 			RuntimeMinutes:         row.RuntimeMin,
 			Color:                  color,
 			ThumbnailImageFilename: bucket.GetThumbnailKey(row.ID),
-			ImageFilenames:         imageFilenames,
+			Images:                 images,
 		})
 	}
 
