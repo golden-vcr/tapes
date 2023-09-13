@@ -16,7 +16,6 @@ type Row struct {
 	Title      string
 	Year       int
 	RuntimeMin int
-	Color      string
 }
 
 type rowIndexMap struct {
@@ -24,7 +23,6 @@ type rowIndexMap struct {
 	titleColumnIndex   int
 	yearColumnIndex    int
 	runtimeColumnIndex int
-	colorColumnIndex   int
 }
 
 func buildRowLookup(result *valuesResult) (RowLookup, error) {
@@ -57,7 +55,6 @@ func resolveRowIndices(values []string) (rowIndexMap, error) {
 		titleColumnIndex:   -1,
 		yearColumnIndex:    -1,
 		runtimeColumnIndex: -1,
-		colorColumnIndex:   -1,
 	}
 	setIndex := func(name string, p *int, value int) error {
 		if *p >= 0 {
@@ -84,10 +81,6 @@ func resolveRowIndices(values []string) (rowIndexMap, error) {
 			if err := setIndex("runtime", &result.runtimeColumnIndex, i); err != nil {
 				return result, err
 			}
-		} else if strings.Contains(heading, "color") {
-			if err := setIndex("color", &result.colorColumnIndex, i); err != nil {
-				return result, err
-			}
 		}
 	}
 	if result.idColumnIndex == -1 {
@@ -101,9 +94,6 @@ func resolveRowIndices(values []string) (rowIndexMap, error) {
 	}
 	if result.runtimeColumnIndex == -1 {
 		return result, fmt.Errorf("could not resolve 'runtime' column from headings row")
-	}
-	if result.colorColumnIndex == -1 {
-		return result, fmt.Errorf("could not resolve 'color' column from headings row")
 	}
 	return result, nil
 }
@@ -149,21 +139,11 @@ func parseRow(values []string, m rowIndexMap) (*Row, error) {
 		runtime = runtimeAsInt
 	}
 
-	color := ""
-	colorValue := readRowValue(values, m.colorColumnIndex)
-	if colorValue != "" {
-		if !hexColorRegexp.MatchString(colorValue) {
-			return nil, fmt.Errorf("'color' value must be a valid hex color (got '%s')", colorValue)
-		}
-		color = colorValue
-	}
-
 	return &Row{
 		ID:         id,
 		Title:      title,
 		Year:       year,
 		RuntimeMin: runtime,
-		Color:      color,
 	}, nil
 }
 
