@@ -6,10 +6,13 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/codingconcepts/env"
 	"github.com/joho/godotenv"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/golden-vcr/tapes/internal/bucket"
 	"github.com/golden-vcr/tapes/internal/server"
@@ -40,19 +43,33 @@ func main() {
 		log.Fatalf("error loading config: %v", err)
 	}
 
+	ctx, close := signal.NotifyContext(context.Background(), os.Interrupt, os.Kill, syscall.SIGTERM)
+	defer close()
+
 	sheetsClient, err := sheets.NewClient(context.Background(), config.SheetsApiKey, config.SpreadsheetId, time.Hour)
 	if err != nil {
 		log.Fatalf("error initializing sheets API client: %v", err)
 	}
+
 	bucketClient, err := bucket.NewClient(context.Background(), config.SpacesAccessKeyId, config.SpacesSecretKey, config.SpacesEndpointUrl, config.SpacesRegionName, config.SpacesBucketName, time.Hour)
 	if err != nil {
 		log.Fatalf("error initializing S3 bucket API client: %v", err)
 	}
-	srv := server.New(sheetsClient, bucketClient)
 
+	srv := server.New(sheetsClient, bucketClient)
 	addr := fmt.Sprintf("%s:%d", config.BindAddr, config.ListenPort)
-	fmt.Printf("Listening on %s...\n", addr)
-	err = http.ListenAndServe(addr, srv)
+	server := &http.Server{Addr: addr, Handler: srv}
+
+	var wg errgroup.Group
+	wg.Go(server.ListenAndServe)
+
+	select {
+	case <-ctx.Done():
+		fmt.Printf("Received signal; closing server...\n")
+		server.Shutdown(context.Background())
+	}
+
+	err = wg.Wait()
 	if err == http.ErrServerClosed {
 		fmt.Printf("Server closed.\n")
 	} else {
