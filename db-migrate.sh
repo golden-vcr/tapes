@@ -13,7 +13,7 @@ function require_env() {
 }
 
 function url_encode() {
-    node -e 'console.log(encodeURIComponent(process.argv[1]))' "$1"
+    python3 -c 'import sys; import urllib.parse; print(urllib.parse.quote_plus(sys.argv[1]))' "$1"
 }
 
 if [ -f .env ]; then
