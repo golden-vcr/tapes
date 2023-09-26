@@ -6,6 +6,10 @@ import (
 	"strconv"
 )
 
+func GetBucketUrl(bucketName string, endpoint string) string {
+	return fmt.Sprintf("https://%s.%s", bucketName, endpoint)
+}
+
 func GetThumbnailKey(tapeId int) string {
 	return fmt.Sprintf("%04d_thumb.jpg", tapeId)
 }
@@ -21,23 +25,23 @@ func GetImageKey(tapeId int, imageIndex int) string {
 	return fmt.Sprintf("%04d_%c.jpg", tapeId, ord)
 }
 
-type parseKeyResult struct {
-	tapeId      int
-	imageIndex  int
-	isThumbnail bool
+type ParseKeyResult struct {
+	TapeId      int
+	ImageIndex  int
+	IsThumbnail bool
 }
 
-func parseKey(k string) *parseKeyResult {
+func ParseKey(k string) *ParseKeyResult {
 	re := regexp.MustCompile(`^(\d{4})_(thumb|[a-z])\.jpg$`)
 	match := re.FindStringSubmatch(k)
 	if match != nil {
 		tapeId, _ := strconv.Atoi(match[1])
 		if match[2] == "thumb" {
-			return &parseKeyResult{tapeId: tapeId, isThumbnail: true}
+			return &ParseKeyResult{TapeId: tapeId, IsThumbnail: true}
 		} else {
 			ord := match[2][0]
 			imageIndex := ord - 'a'
-			return &parseKeyResult{tapeId: tapeId, imageIndex: int(imageIndex)}
+			return &ParseKeyResult{TapeId: tapeId, ImageIndex: int(imageIndex)}
 		}
 	}
 	return nil

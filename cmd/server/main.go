@@ -2,35 +2,38 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 
 	"github.com/codingconcepts/env"
 	"github.com/joho/godotenv"
+	_ "github.com/lib/pq"
 	"golang.org/x/sync/errgroup"
 
+	"github.com/golden-vcr/tapes/gen/queries"
 	"github.com/golden-vcr/tapes/internal/bucket"
 	"github.com/golden-vcr/tapes/internal/server"
-	"github.com/golden-vcr/tapes/internal/sheets"
 )
 
 type Config struct {
 	BindAddr   string `env:"BIND_ADDR"`
 	ListenPort uint16 `env:"LISTEN_PORT" default:"5000"`
 
-	SheetsApiKey  string `env:"SHEETS_API_KEY" required:"true"`
-	SpreadsheetId string `env:"SPREADSHEET_ID" required:"true"`
-
 	SpacesBucketName  string `env:"SPACES_BUCKET_NAME" required:"true"`
-	SpacesRegionName  string `env:"SPACES_REGION_NAME" required:"true"`
 	SpacesEndpointUrl string `env:"SPACES_ENDPOINT_URL" required:"true"`
-	SpacesAccessKeyId string `env:"SPACES_ACCESS_KEY_ID" required:"true"`
-	SpacesSecretKey   string `env:"SPACES_SECRET_KEY" required:"true"`
+
+	DatabaseHost     string `env:"PGHOST" required:"true"`
+	DatabasePort     int    `env:"PGPORT" required:"true"`
+	DatabaseName     string `env:"PGDATABASE" required:"true"`
+	DatabaseUser     string `env:"PGUSER" required:"true"`
+	DatabasePassword string `env:"PGPASSWORD" required:"true"`
+	DatabaseSslMode  string `env:"PGSSLMODE"`
 }
 
 func main() {
@@ -46,20 +49,30 @@ func main() {
 	ctx, close := signal.NotifyContext(context.Background(), os.Interrupt, os.Kill, syscall.SIGTERM)
 	defer close()
 
-	sheetsClient, err := sheets.NewClient(context.Background(), config.SheetsApiKey, config.SpreadsheetId, time.Hour)
+	connectionString := formatConnectionString(
+		config.DatabaseHost,
+		config.DatabasePort,
+		config.DatabaseName,
+		config.DatabaseUser,
+		config.DatabasePassword,
+		config.DatabaseSslMode,
+	)
+	db, err := sql.Open("postgres", connectionString)
 	if err != nil {
-		log.Fatalf("error initializing sheets API client: %v", err)
+		log.Fatalf("error opening database: %v", err)
 	}
-
-	bucketClient, err := bucket.NewClient(context.Background(), config.SpacesAccessKeyId, config.SpacesSecretKey, config.SpacesEndpointUrl, config.SpacesRegionName, config.SpacesBucketName, time.Hour)
-	if err != nil {
-		log.Fatalf("error initializing S3 bucket API client: %v", err)
+	defer db.Close()
+	if err := db.Ping(); err != nil {
+		log.Fatalf("error connecting to database: %v", err)
 	}
+	q := queries.New(db)
 
-	srv := server.New(sheetsClient, bucketClient)
+	bucketUrl := bucket.GetBucketUrl(config.SpacesBucketName, config.SpacesEndpointUrl)
+	srv := server.New(q, bucketUrl)
 	addr := fmt.Sprintf("%s:%d", config.BindAddr, config.ListenPort)
 	server := &http.Server{Addr: addr, Handler: srv}
 
+	fmt.Printf("Listening on %s...\n", addr)
 	var wg errgroup.Group
 	wg.Go(server.ListenAndServe)
 
@@ -75,4 +88,13 @@ func main() {
 	} else {
 		log.Fatalf("error running server: %v", err)
 	}
+}
+
+func formatConnectionString(host string, port int, dbname string, user string, password string, sslmode string) string {
+	urlencodedPassword := url.QueryEscape(password)
+	s := fmt.Sprintf("postgres://%s:%s@%s:%d/%s", user, urlencodedPassword, host, port, dbname)
+	if sslmode != "" {
+		s += fmt.Sprintf("?sslmode=%s", sslmode)
+	}
+	return s
 }

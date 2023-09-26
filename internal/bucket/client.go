@@ -17,8 +17,6 @@ type Client struct {
 	bucketName string
 	ttl        time.Duration
 
-	bucketUrl string
-
 	metadata       metadataCache
 	imageCounts    map[int]int
 	expirationTime time.Time
@@ -42,8 +40,6 @@ func NewClient(ctx context.Context, accessKeyId string, secretKey string, endpoi
 		bucketName: bucketName,
 		ttl:        ttl,
 
-		bucketUrl: fmt.Sprintf("https://%s.%s", bucketName, endpoint),
-
 		metadata:       make(metadataCache),
 		imageCounts:    nil,
 		expirationTime: time.UnixMilli(0),
@@ -52,10 +48,6 @@ func NewClient(ctx context.Context, accessKeyId string, secretKey string, endpoi
 		return nil, err
 	}
 	return c, nil
-}
-
-func (c *Client) GetImageHostURL() string {
-	return c.bucketUrl
 }
 
 func (c *Client) GetImageData(ctx context.Context) map[int][]ImageData {
@@ -104,18 +96,18 @@ func (c *Client) fetchImageCounts(ctx context.Context) (map[int]int, error) {
 
 		for i := range res.Contents {
 			obj := res.Contents[i]
-			parsed := parseKey(*obj.Key)
+			parsed := ParseKey(*obj.Key)
 			if parsed != nil {
-				details, ok := detailsByTapeId[parsed.tapeId]
+				details, ok := detailsByTapeId[parsed.TapeId]
 				if !ok {
 					newDetails := &imageDetails{maxImageIndex: -1}
-					detailsByTapeId[parsed.tapeId] = newDetails
+					detailsByTapeId[parsed.TapeId] = newDetails
 					details = newDetails
 				}
-				if parsed.isThumbnail {
+				if parsed.IsThumbnail {
 					details.hasThumbnail = true
-				} else if parsed.imageIndex > details.maxImageIndex {
-					details.maxImageIndex = parsed.imageIndex
+				} else if parsed.ImageIndex > details.maxImageIndex {
+					details.maxImageIndex = parsed.ImageIndex
 				}
 			}
 		}
