@@ -2,78 +2,118 @@ package sheets
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
-	"sort"
-	"time"
+	"net/http"
+	"strings"
 )
 
+// SheetName is the name given to the sheet (i.e. tab) within the Golden VCR Inventory
+// spreadsheet that should be parsed to obtain the current list of tapes
 const SheetName = "Tapes"
 
-type Client struct {
-	sheetsApiKey  string
-	spreadsheetId string
-	ttl           time.Duration
-
-	rows           RowLookup
-	expirationTime time.Time
+// GetValuesResult is the payload returned by the Google Sheets API from
+// GET /v4/spreadsheets/:spreadsheetId/values/:sheetName
+type GetValuesResult struct {
+	Range          string     `json:"range"`
+	MajorDimension string     `json:"majorDimension"`
+	Values         [][]string `json:"values"`
 }
 
-func NewClient(ctx context.Context, sheetsApiKey string, spreadsheetId string, ttl time.Duration) (*Client, error) {
-	client := &Client{
+// SheetsClient allows the contents of a single sheet in a single spreadsheet to be
+// fetched from the Google Sheets API
+type SheetsClient interface {
+	GetValues(ctx context.Context) (*GetValuesResult, error)
+}
+
+// NewClient returns a SheetsClient that will fetch data from an actual spreadsheet in
+// Google sheets
+func NewClient(sheetsApiKey string, spreadsheetId string) SheetsClient {
+	return &sheetsClient{
 		sheetsApiKey:  sheetsApiKey,
 		spreadsheetId: spreadsheetId,
-		ttl:           ttl,
-
-		rows:           nil,
-		expirationTime: time.UnixMilli(0),
+		sheetName:     SheetName,
 	}
-	if err := client.updateRows(ctx); err != nil {
-		return nil, err
-	}
-	return client, nil
 }
 
-func (c *Client) ListTapes(ctx context.Context) ([]Row, error) {
-	rows, err := c.getRows(ctx)
+// sheetsClient implementats SheetsClient, configured with a Google API key and a
+// spreadsheet ID and sheet name to pull values from
+type sheetsClient struct {
+	sheetsApiKey  string
+	spreadsheetId string
+	sheetName     string
+}
+
+// errorResult is the payload that the Sheets API returns to provide more details about
+// an error
+type errorResult struct {
+	Error errorData `json:"error"`
+}
+
+// errorData encodes the details of an error encountered during a Sheets API call
+type errorData struct {
+	Code    int    `json:"code"`
+	Message string `json:"message"`
+	Status  string `json:"status"`
+}
+
+// getSheetValues requests the raw values from a sheet in a Google Sheets spreadhsset,
+// authorized with the given API key
+func (c *sheetsClient) GetValues(ctx context.Context) (*GetValuesResult, error) {
+	// Build a request to the Google Sheets API to get the full contents of our desired sheet
+	url := fmt.Sprintf("https://sheets.googleapis.com/v4/spreadsheets/%s/values/%s", c.spreadsheetId, c.sheetName)
+	fmt.Printf("> GET %s\n", url)
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		return nil, err
 	}
+	req.Header.Add("X-goog-api-key", c.sheetsApiKey)
 
-	ids := make([]int, 0, len(rows))
-	for k := range rows {
-		ids = append(ids, k)
+	// Make the request and verify that we got an OK result
+	client := &http.Client{}
+	res, err := client.Do(req)
+	if err != nil {
+		return nil, err
 	}
-	sort.Ints(ids)
+	fmt.Printf("< %d\n", res.StatusCode)
+	if err := handleRequestError(res); err != nil {
+		return nil, err
+	}
 
-	result := make([]Row, 0, len(ids))
-	for _, id := range ids {
-		result = append(result, rows[id])
+	// We have a 200 response from the Sheets API: parse it from JSON
+	contentType := res.Header.Get("content-type")
+	if !strings.HasPrefix(contentType, "application/json") {
+		return nil, fmt.Errorf("expected a response with content-type 'application/json'; got '%s'", contentType)
 	}
-	return result, nil
+	var result GetValuesResult
+	err = json.NewDecoder(res.Body).Decode(&result)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse Sheets API response: %w", err)
+	}
+	return &result, nil
 }
 
-func (c *Client) updateRows(ctx context.Context) error {
-	result, err := getSheetValues(ctx, c.sheetsApiKey, c.spreadsheetId, SheetName)
-	if err != nil {
-		return err
+// handleRequestError returns nil if the provided response is OK; otherwise it returns
+// an error populated with the error details returned by the Sheets API
+func handleRequestError(res *http.Response) error {
+	if res.StatusCode >= 200 && res.StatusCode <= 299 {
+		return nil
 	}
-	rows, err := buildRowLookup(result)
-	if err != nil {
-		return err
+	data := readErrorData(res)
+	if data != nil {
+		return fmt.Errorf("got error %d (%s): %s", data.Code, data.Status, data.Message)
 	}
-	c.rows = rows
-	c.expirationTime = time.Now().Add(c.ttl)
-	return nil
+	return fmt.Errorf("got status %d from Sheets API call", res.StatusCode)
 }
 
-func (c *Client) getRows(ctx context.Context) (RowLookup, error) {
-	var err error
-	if time.Now().After(c.expirationTime) {
-		err = c.updateRows(ctx)
-		if err != nil && c.rows != nil {
-			fmt.Printf("WARNING: Failed to read spreadsheet data; reusing stale data: %v", err)
-			err = nil
-		}
+func readErrorData(res *http.Response) *errorData {
+	if !strings.HasPrefix(res.Header.Get("content-type"), "application/json") {
+		return nil
 	}
-	return c.rows, err
+	var result errorResult
+	err := json.NewDecoder(res.Body).Decode(&result)
+	if err != nil {
+		return nil
+	}
+	return &result.Error
 }

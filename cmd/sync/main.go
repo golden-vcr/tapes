@@ -73,61 +73,66 @@ func main() {
 
 	// Initialize a Google sheets API client and get a listing of all tapes with valid
 	// rows in the inventory spreadsheet
-	sheetsClient, err := sheets.NewClient(context.Background(), config.SheetsApiKey, config.SpreadsheetId, time.Hour)
+	fmt.Printf("Listing tapes in the Golden VCR Inventory spreadsheet (%s)...\n", config.SpreadsheetId)
+	sheetsClient := sheets.NewClient(config.SheetsApiKey, config.SpreadsheetId)
+	tapes, warnings, err := sheets.ListTapes(ctx, sheetsClient)
 	if err != nil {
-		log.Fatalf("error initializing sheets API client: %v", err)
+		log.Fatalf("error listing tapes from spreadsheet: %v", err)
 	}
-	rows, err := sheetsClient.ListTapes(ctx)
-	if err != nil {
-		log.Fatalf("error listing rows from sheets API: %v", err)
+	for _, warning := range warnings {
+		fmt.Printf("[WARNING] At row %d: %s\n", warning.RowNumber, warning.Message)
+	}
+	fmt.Printf("Got %d tapes:\n", len(tapes))
+	for _, tape := range tapes {
+		fmt.Printf("- %3d | %4d | %3d | %s\n", tape.Id, tape.Year, tape.Runtime, tape.Title)
 	}
 
 	// Initialize an S3 client so we can get image URLs and metadata from our Spaces
 	// bucket
-	bucketClient, err := bucket.NewClient(context.Background(), config.SpacesAccessKeyId, config.SpacesSecretKey, config.SpacesEndpointUrl, config.SpacesRegionName, config.SpacesBucketName, time.Hour)
+	bucketClient, err := bucket.NewClient(ctx, config.SpacesAccessKeyId, config.SpacesSecretKey, config.SpacesEndpointUrl, config.SpacesRegionName, config.SpacesBucketName, time.Hour)
 	if err != nil {
 		log.Fatalf("error initializing S3 bucket API client: %v", err)
 	}
 	imageDataByTapeId := bucketClient.GetImageData(ctx)
 
 	// Iterate over all tapes in the spreadsheet
-	fmt.Printf("Syncing data for up to %d tapes...\n", len(rows))
-	for _, row := range rows {
+	fmt.Printf("Syncing data for up to %d tapes...\n", len(tapes))
+	for _, tape := range tapes {
 		// Don't sync a tape unless it has at least one image in the bucket
-		images, ok := imageDataByTapeId[row.ID]
+		images, ok := imageDataByTapeId[tape.Id]
 		if !ok || len(images) == 0 {
-			fmt.Printf("WARNING: Skipping sync for tape %d; it has no images\n", row.ID)
+			fmt.Printf("WARNING: Skipping sync for tape %d; it has no images\n", tape.Id)
 			continue
 		}
 
 		// Store year and runtime as NULL if not specified
 		yearValue := sql.NullInt32{Valid: false}
-		if row.Year > 0 {
+		if tape.Year > 0 {
 			yearValue.Valid = true
-			yearValue.Int32 = int32(row.Year)
+			yearValue.Int32 = int32(tape.Year)
 		}
 		runtimeValue := sql.NullInt32{Valid: false}
-		if row.RuntimeMin > 0 {
+		if tape.Runtime > 0 {
 			runtimeValue.Valid = true
-			runtimeValue.Int32 = int32(row.RuntimeMin)
+			runtimeValue.Int32 = int32(tape.Runtime)
 		}
 
 		// Start a transaction so that we only commit a tape with all available images
 		tx, err := db.BeginTx(ctx, nil)
 		if err != nil {
-			log.Fatalf("failed to begin database transaction for tape %d", row.ID)
+			log.Fatalf("failed to begin database transaction for tape %d", tape.Id)
 		}
 		defer tx.Rollback()
 		q := queries.New(tx)
 
 		// Upsert into the tape table to register our tape with its latest details
 		if err := q.SyncTape(ctx, queries.SyncTapeParams{
-			ID:      int32(row.ID),
-			Title:   row.Title,
+			ID:      int32(tape.Id),
+			Title:   tape.Title,
 			Year:    yearValue,
 			Runtime: runtimeValue,
 		}); err != nil {
-			log.Fatalf("failed to sync tape %d: %v", row.ID, err)
+			log.Fatalf("failed to sync tape %d: %v", tape.Id, err)
 		}
 
 		// Get the metadata for all images associated with this tape, and register each
@@ -135,27 +140,27 @@ func main() {
 		for _, image := range images {
 			// Parse the image index from the filename, following naming conventions
 			parsed := bucket.ParseKey(image.Filename)
-			if parsed == nil || parsed.TapeId != row.ID || parsed.IsThumbnail {
-				log.Fatalf("unable to sync image for tape %d: unexpected image data %+v", row.ID, parsed)
+			if parsed == nil || parsed.TapeId != tape.Id || parsed.IsThumbnail {
+				log.Fatalf("unable to sync image for tape %d: unexpected image data %+v", tape.Id, parsed)
 			}
 
 			// Upsert into the image table to register the latest image metadata
 			if err := q.SyncImage(ctx, queries.SyncImageParams{
-				TapeID:  int32(row.ID),
+				TapeID:  int32(tape.Id),
 				Index:   int32(parsed.ImageIndex),
 				Color:   image.Color,
 				Width:   int32(image.Width),
 				Height:  int32(image.Height),
 				Rotated: image.Rotated,
 			}); err != nil {
-				log.Fatalf("failed to sync image %d for tape %d: %v", parsed.ImageIndex, row.ID, err)
+				log.Fatalf("failed to sync image %d for tape %d: %v", parsed.ImageIndex, tape.Id, err)
 			}
 		}
 
 		// Commit the transaction; we've finished this tape
-		fmt.Printf("tape %d: synced with %d images.\n", row.ID, len(images))
+		fmt.Printf("tape %d: synced with %d images.\n", tape.Id, len(images))
 		if err := tx.Commit(); err != nil {
-			log.Fatalf("failed to commit database transaction for tape %d", row.ID)
+			log.Fatalf("failed to commit database transaction for tape %d", tape.Id)
 		}
 	}
 	fmt.Printf("Done.\n")
