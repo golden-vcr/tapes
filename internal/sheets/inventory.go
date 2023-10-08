@@ -16,7 +16,7 @@ type Warning struct {
 	Message string
 }
 
-func ListTapes(ctx context.Context, c SheetsClient) ([]Tape, []Warning, error) {
+func ListTapes(ctx context.Context, c Client) ([]Tape, []Warning, error) {
 	// Fetch the full contents of the Golden VCR Inventory spreadsheet's 'Tapes' sheet
 	result, err := c.GetValues(ctx)
 	if err != nil {

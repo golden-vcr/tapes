@@ -20,25 +20,25 @@ type GetValuesResult struct {
 	Values         [][]string `json:"values"`
 }
 
-// SheetsClient allows the contents of a single sheet in a single spreadsheet to be
-// fetched from the Google Sheets API
-type SheetsClient interface {
+// Client allows the contents of a single sheet in a single spreadsheet to be fetched
+// from the Google Sheets API
+type Client interface {
 	GetValues(ctx context.Context) (*GetValuesResult, error)
 }
 
-// NewClient returns a SheetsClient that will fetch data from an actual spreadsheet in
-// Google sheets
-func NewClient(sheetsApiKey string, spreadsheetId string) SheetsClient {
-	return &sheetsClient{
+// NewClient returns a Client that will fetch data from an actual spreadsheet in Google
+// sheets
+func NewClient(sheetsApiKey string, spreadsheetId string) Client {
+	return &client{
 		sheetsApiKey:  sheetsApiKey,
 		spreadsheetId: spreadsheetId,
 		sheetName:     SheetName,
 	}
 }
 
-// sheetsClient implementats SheetsClient, configured with a Google API key and a
+// client implementats sheets.Client, configured with a Google API key and a
 // spreadsheet ID and sheet name to pull values from
-type sheetsClient struct {
+type client struct {
 	sheetsApiKey  string
 	spreadsheetId string
 	sheetName     string
@@ -59,7 +59,7 @@ type errorData struct {
 
 // getSheetValues requests the raw values from a sheet in a Google Sheets spreadhsset,
 // authorized with the given API key
-func (c *sheetsClient) GetValues(ctx context.Context) (*GetValuesResult, error) {
+func (c *client) GetValues(ctx context.Context) (*GetValuesResult, error) {
 	// Build a request to the Google Sheets API to get the full contents of our desired sheet
 	url := fmt.Sprintf("https://sheets.googleapis.com/v4/spreadsheets/%s/values/%s", c.spreadsheetId, c.sheetName)
 	fmt.Printf("> GET %s\n", url)

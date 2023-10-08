@@ -6,7 +6,7 @@ import (
 	"net/http"
 
 	"github.com/golden-vcr/tapes/gen/queries"
-	"github.com/golden-vcr/tapes/internal/bucket"
+	"github.com/golden-vcr/tapes/internal/storage"
 )
 
 type Server struct {
@@ -51,7 +51,7 @@ func (s *Server) handleGetTapeListing(res http.ResponseWriter, req *http.Request
 		images := make([]TapeImageData, 0, len(imageData))
 		for i := range imageData {
 			images = append(images, TapeImageData{
-				Filename: bucket.GetImageKey(int(row.ID), int(imageData[i].Index)),
+				Filename: storage.GetImageFilename(int(row.ID), storage.ImageTypeGallery, int(imageData[i].Index)),
 				Width:    int(imageData[i].Width),
 				Height:   int(imageData[i].Height),
 				Color:    imageData[i].Color,
@@ -71,7 +71,7 @@ func (s *Server) handleGetTapeListing(res http.ResponseWriter, req *http.Request
 			Title:                  row.Title,
 			Year:                   year,
 			RuntimeMinutes:         runtime,
-			ThumbnailImageFilename: bucket.GetThumbnailKey(int(row.ID)),
+			ThumbnailImageFilename: storage.GetImageFilename(int(row.ID), storage.ImageTypeThumbnail, -1),
 			Images:                 images,
 		})
 	}

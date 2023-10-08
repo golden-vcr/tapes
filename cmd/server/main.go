@@ -17,7 +17,6 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/golden-vcr/tapes/gen/queries"
-	"github.com/golden-vcr/tapes/internal/bucket"
 	"github.com/golden-vcr/tapes/internal/server"
 )
 
@@ -25,8 +24,8 @@ type Config struct {
 	BindAddr   string `env:"BIND_ADDR"`
 	ListenPort uint16 `env:"LISTEN_PORT" default:"5000"`
 
-	SpacesBucketName  string `env:"SPACES_BUCKET_NAME" required:"true"`
-	SpacesEndpointUrl string `env:"SPACES_ENDPOINT_URL" required:"true"`
+	SpacesBucketName     string `env:"SPACES_BUCKET_NAME" required:"true"`
+	SpacesEndpointOrigin string `env:"SPACES_ENDPOINT_URL" required:"true"`
 
 	DatabaseHost     string `env:"PGHOST" required:"true"`
 	DatabasePort     int    `env:"PGPORT" required:"true"`
@@ -67,7 +66,7 @@ func main() {
 	}
 	q := queries.New(db)
 
-	bucketUrl := bucket.GetBucketUrl(config.SpacesBucketName, config.SpacesEndpointUrl)
+	bucketUrl := fmt.Sprintf("https://%s.%s", config.SpacesBucketName, config.SpacesEndpointOrigin)
 	srv := server.New(q, bucketUrl)
 	addr := fmt.Sprintf("%s:%d", config.BindAddr, config.ListenPort)
 	server := &http.Server{Addr: addr, Handler: srv}

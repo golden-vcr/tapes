@@ -9,26 +9,25 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 
 	"github.com/codingconcepts/env"
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
 
 	"github.com/golden-vcr/tapes/gen/queries"
-	"github.com/golden-vcr/tapes/internal/bucket"
 	"github.com/golden-vcr/tapes/internal/sheets"
+	"github.com/golden-vcr/tapes/internal/storage"
 )
 
 type Config struct {
 	SheetsApiKey  string `env:"SHEETS_API_KEY" required:"true"`
 	SpreadsheetId string `env:"SPREADSHEET_ID" required:"true"`
 
-	SpacesBucketName  string `env:"SPACES_BUCKET_NAME" required:"true"`
-	SpacesRegionName  string `env:"SPACES_REGION_NAME" required:"true"`
-	SpacesEndpointUrl string `env:"SPACES_ENDPOINT_URL" required:"true"`
-	SpacesAccessKeyId string `env:"SPACES_ACCESS_KEY_ID" required:"true"`
-	SpacesSecretKey   string `env:"SPACES_SECRET_KEY" required:"true"`
+	SpacesBucketName     string `env:"SPACES_BUCKET_NAME" required:"true"`
+	SpacesRegionName     string `env:"SPACES_REGION_NAME" required:"true"`
+	SpacesEndpointOrigin string `env:"SPACES_ENDPOINT_URL" required:"true"`
+	SpacesAccessKeyId    string `env:"SPACES_ACCESS_KEY_ID" required:"true"`
+	SpacesSecretKey      string `env:"SPACES_SECRET_KEY" required:"true"`
 
 	DatabaseHost     string `env:"PGHOST" required:"true"`
 	DatabasePort     int    `env:"PGPORT" required:"true"`
@@ -75,12 +74,9 @@ func main() {
 	// rows in the inventory spreadsheet
 	fmt.Printf("Listing tapes in the Golden VCR Inventory spreadsheet (%s)...\n", config.SpreadsheetId)
 	sheetsClient := sheets.NewClient(config.SheetsApiKey, config.SpreadsheetId)
-	tapes, warnings, err := sheets.ListTapes(ctx, sheetsClient)
+	tapes, sheetWarnings, err := sheets.ListTapes(ctx, sheetsClient)
 	if err != nil {
 		log.Fatalf("error listing tapes from spreadsheet: %v", err)
-	}
-	for _, warning := range warnings {
-		fmt.Printf("[WARNING] At row %d: %s\n", warning.RowNumber, warning.Message)
 	}
 	fmt.Printf("Got %d tapes:\n", len(tapes))
 	for _, tape := range tapes {
@@ -89,19 +85,64 @@ func main() {
 
 	// Initialize an S3 client so we can get image URLs and metadata from our Spaces
 	// bucket
-	bucketClient, err := bucket.NewClient(ctx, config.SpacesAccessKeyId, config.SpacesSecretKey, config.SpacesEndpointUrl, config.SpacesRegionName, config.SpacesBucketName, time.Hour)
+	fmt.Printf("Retrieving image filenames and metadata from storage bucket (%s)...\n", config.SpacesBucketName)
+	storageClient, err := storage.NewClient(
+		config.SpacesAccessKeyId,
+		config.SpacesSecretKey,
+		config.SpacesEndpointOrigin,
+		config.SpacesRegionName,
+		config.SpacesBucketName,
+	)
 	if err != nil {
-		log.Fatalf("error initializing S3 bucket API client: %v", err)
+		log.Fatalf("error initializing client for S3-compatible storage: %v", err)
 	}
-	imageDataByTapeId := bucketClient.GetImageData(ctx)
+	images, imageWarnings, err := storage.ListImages(ctx, storageClient)
+	if err != nil {
+		log.Fatalf("error retrieving image data from storage bucket: %v", err)
+	}
+	fmt.Printf("Got %d images:\n", len(images))
+	for _, image := range images {
+		summary := fmt.Sprintf("%3d | %-9s | %s", image.TapeId, image.Type, image.Filename)
+		if image.Type == storage.ImageTypeGallery {
+			index := image.GalleryData.Index
+			md := image.GalleryData.Metadata
+			flag := ""
+			if md.Rotated {
+				flag = "rotated"
+			}
+			fmt.Printf("- %s | %d | %d x %d | %s | %s\n", summary, index, md.Width, md.Height, md.Color, flag)
+		} else {
+			fmt.Printf("- %s\n", summary)
+		}
+	}
+
+	// We don't actually record anything in the database for thumbnail images: we just
+	// require that a tape have a thumbnail image before we record that the tape exists,
+	// so we can assume that every tape has a thumbnail image at %04d_thumb.jpg. Collect
+	// all of the gallery images that we need to record for each tape.
+	galleryImagesByTapeId := make(map[int][]*storage.Image)
+	for _, image := range images {
+		galleryImagesByTapeId[image.TapeId] = append(galleryImagesByTapeId[image.TapeId], &image)
+	}
+
+	// Collect a list of all warnings, line-by-line as strings, so we can present a
+	// summary when finished syncing
+	warningLines := make([]string, 0, len(sheetWarnings)+len(imageWarnings))
+	for _, warning := range sheetWarnings {
+		warningLines = append(warningLines, fmt.Sprintf("Spreadsheet row %d: %s", warning.RowNumber, warning.Message))
+	}
+	for _, warning := range imageWarnings {
+		warningLines = append(warningLines, fmt.Sprintf("Image file %s: %s", warning.Filename, warning.Message))
+	}
 
 	// Iterate over all tapes in the spreadsheet
-	fmt.Printf("Syncing data for up to %d tapes...\n", len(tapes))
+	fmt.Printf("Syncing tape and image data to the tapes database...\n")
+	numTapesSynced := 0
 	for _, tape := range tapes {
-		// Don't sync a tape unless it has at least one image in the bucket
-		images, ok := imageDataByTapeId[tape.Id]
-		if !ok || len(images) == 0 {
-			fmt.Printf("WARNING: Skipping sync for tape %d; it has no images\n", tape.Id)
+		// Don't sync a tape unless it has at least one gallery image stored
+		galleryImages, ok := galleryImagesByTapeId[tape.Id]
+		if !ok || len(galleryImages) == 0 {
+			warningLines = append(warningLines, fmt.Sprintf("Tape %d has no image files; ignoring it.", tape.Id))
 			continue
 		}
 
@@ -137,33 +178,35 @@ func main() {
 
 		// Get the metadata for all images associated with this tape, and register each
 		// of those images
-		for _, image := range images {
-			// Parse the image index from the filename, following naming conventions
-			parsed := bucket.ParseKey(image.Filename)
-			if parsed == nil || parsed.TapeId != tape.Id || parsed.IsThumbnail {
-				log.Fatalf("unable to sync image for tape %d: unexpected image data %+v", tape.Id, parsed)
-			}
-
+		for _, image := range galleryImages {
 			// Upsert into the image table to register the latest image metadata
 			if err := q.SyncImage(ctx, queries.SyncImageParams{
 				TapeID:  int32(tape.Id),
-				Index:   int32(parsed.ImageIndex),
-				Color:   image.Color,
-				Width:   int32(image.Width),
-				Height:  int32(image.Height),
-				Rotated: image.Rotated,
+				Index:   int32(image.GalleryData.Index),
+				Color:   string(image.GalleryData.Metadata.Color),
+				Width:   int32(image.GalleryData.Metadata.Width),
+				Height:  int32(image.GalleryData.Metadata.Height),
+				Rotated: image.GalleryData.Metadata.Rotated,
 			}); err != nil {
-				log.Fatalf("failed to sync image %d for tape %d: %v", parsed.ImageIndex, tape.Id, err)
+				log.Fatalf("failed to sync image %d for tape %d: %v", image.GalleryData.Index, tape.Id, err)
 			}
 		}
 
 		// Commit the transaction; we've finished this tape
-		fmt.Printf("tape %d: synced with %d images.\n", tape.Id, len(images))
+		fmt.Printf("tape %d: synced with %d images.\n", tape.Id, len(galleryImages))
 		if err := tx.Commit(); err != nil {
 			log.Fatalf("failed to commit database transaction for tape %d", tape.Id)
 		}
+		numTapesSynced++
 	}
-	fmt.Printf("Done.\n")
+
+	fmt.Printf("Synced data for %d tape(s).\n", numTapesSynced)
+	if len(warningLines) > 0 {
+		fmt.Printf("Encountered %d warning(s):\n", len(warningLines))
+		for _, line := range warningLines {
+			fmt.Printf("- %s\n", line)
+		}
+	}
 }
 
 func formatConnectionString(host string, port int, dbname string, user string, password string, sslmode string) string {

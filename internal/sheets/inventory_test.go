@@ -11,21 +11,21 @@ import (
 func Test_ListTapes(t *testing.T) {
 	tests := []struct {
 		name         string
-		c            *mockSheetsClient
+		c            *mockClient
 		wantErr      string
 		wantWarnings []Warning
 		wantTapes    []Tape
 	}{
 		{
 			"API error is a fatal error",
-			&mockSheetsClient{err: fmt.Errorf("mock error")},
+			&mockClient{err: fmt.Errorf("mock error")},
 			"failed to get values from inventory spreadsheet: mock error",
 			nil,
 			nil,
 		},
 		{
 			"normal sheet is parsed OK",
-			&mockSheetsClient{values: [][]string{
+			&mockClient{values: [][]string{
 				{"id", "title", "year", "runtime"},
 				{"1", "Tape one", "1991", "60"},
 				{"2", "Tape two", "", ""},
@@ -47,7 +47,7 @@ func Test_ListTapes(t *testing.T) {
 		},
 		{
 			"missing columns is a fatal error",
-			&mockSheetsClient{values: [][]string{
+			&mockClient{values: [][]string{
 				{"", "title", "year", "runtime"},
 				{"1", "Tape one", "1991", "60"},
 				{"2", "Tape two", "", ""},
@@ -58,14 +58,14 @@ func Test_ListTapes(t *testing.T) {
 		},
 		{
 			"entirely empty spreadsheet is a fatal error",
-			&mockSheetsClient{values: [][]string{}},
+			&mockClient{values: [][]string{}},
 			"inventory spreadsheet has no values",
 			nil,
 			nil,
 		},
 		{
 			"spreadsheet with valid headings but no rows is OK",
-			&mockSheetsClient{values: [][]string{
+			&mockClient{values: [][]string{
 				{"id", "title", "year", "runtime"},
 			}},
 			"",
@@ -74,7 +74,7 @@ func Test_ListTapes(t *testing.T) {
 		},
 		{
 			"rows that can't be parsed are ignored and result in a warning",
-			&mockSheetsClient{values: [][]string{
+			&mockClient{values: [][]string{
 				{"id", "title", "year", "runtime"},
 				{"1", "Tape one", "199X", "60"},
 				{"2", "Tape two", "", ""},
@@ -95,7 +95,7 @@ func Test_ListTapes(t *testing.T) {
 		},
 		{
 			"tapes with duplicate IDs are ignored and result in a warning",
-			&mockSheetsClient{values: [][]string{
+			&mockClient{values: [][]string{
 				{"id", "title", "year", "runtime"},
 				{"1", "Tape one", "1991", "60"},
 				{"2", "Tape two", "", ""},
@@ -135,12 +135,12 @@ func Test_ListTapes(t *testing.T) {
 	}
 }
 
-type mockSheetsClient struct {
+type mockClient struct {
 	err    error
 	values [][]string
 }
 
-func (m *mockSheetsClient) GetValues(ctx context.Context) (*GetValuesResult, error) {
+func (m *mockClient) GetValues(ctx context.Context) (*GetValuesResult, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
@@ -151,4 +151,4 @@ func (m *mockSheetsClient) GetValues(ctx context.Context) (*GetValuesResult, err
 	}, nil
 }
 
-var _ SheetsClient = (*mockSheetsClient)(nil)
+var _ Client = (*mockClient)(nil)
