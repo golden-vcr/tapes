@@ -1,3 +1,29 @@
+-- name: CreateSync :exec
+insert into tapes.sync (
+    uuid,
+    started_at
+) values (
+    @uuid,
+    now()
+);
+
+-- name: RecordFailedSync :exec
+update tapes.sync set
+    finished_at = now(),
+    error = @error::text
+where
+    sync.uuid = @uuid
+    and finished_at is null;
+
+-- name: RecordSuccessfulSync :exec
+update tapes.sync set
+    finished_at = now(),
+    num_tapes = @num_tapes::integer,
+    warnings = @warnings::text
+where
+    sync.uuid = @uuid
+    and finished_at is null;
+
 -- name: SyncTape :exec
 insert into tapes.tape (
     id,

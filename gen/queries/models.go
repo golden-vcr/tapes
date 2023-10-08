@@ -7,6 +7,8 @@ package queries
 import (
 	"database/sql"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 // Metadata for a single image scanned from a specific tape.
@@ -22,6 +24,22 @@ type TapesImage struct {
 	Height int32
 	// Whether the image was rotated 90 degrees CCW in order to have a vertical aspect ratio, in which case it may be displayed with a 90-degree CW rotation applied in order for any text in the image to be legible.
 	Rotated bool
+}
+
+// Record of an attempt to sync tape and image data to the GVCR database.
+type TapesSync struct {
+	// Unique identifier for this sync.
+	Uuid uuid.UUID
+	// Time at which the sync started.
+	StartedAt time.Time
+	// Time at which the sync finished, unless still in progress or abandoned.
+	FinishedAt sql.NullTime
+	// Error message that ended the sync prematurely.
+	Error sql.NullString
+	// Number of tapes successfully synced.
+	NumTapes sql.NullInt32
+	// Newline-delimited string containing all warning lines emitted during the sync.
+	Warnings sql.NullString
 }
 
 // Details of a single VHS tape in the Golden VCR library.

@@ -8,9 +8,11 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 
 	"github.com/codingconcepts/env"
+	"github.com/google/uuid"
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
 
@@ -69,14 +71,71 @@ func main() {
 	if err := db.Ping(); err != nil {
 		log.Fatalf("error connecting to database: %v", err)
 	}
+	q := queries.New(db)
 
+	// Record the start of a sync in the database (outside of a transaction; we want
+	// this recorded immediately
+	syncUuid := uuid.New()
+	if err := q.CreateSync(ctx, syncUuid); err != nil {
+		log.Fatalf("failed to record new sync in database: %v", err)
+	}
+	fmt.Printf("sync uuid: %s\n", syncUuid)
+
+	// Start a transaction so that we only commit tape/image changes when finished
+	// syncing everything
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		log.Fatalf("failed to begin database transaction: %v", err)
+	}
+	defer tx.Rollback()
+	txQueries := queries.New(tx)
+
+	// Run the sync, and commit the database transaction on success
+	numTapesSynced, warningLines, err := runSync(ctx, &config, txQueries)
+	if err == nil {
+		err = tx.Commit()
+	}
+
+	// Update the database to record the results of our sync
+	var recordResultErr error
+	if err == nil {
+		recordResultErr = q.RecordSuccessfulSync(ctx, queries.RecordSuccessfulSyncParams{
+			Uuid:     syncUuid,
+			NumTapes: int32(numTapesSynced),
+			Warnings: strings.Join(warningLines, "\n"),
+		})
+	} else {
+		recordResultErr = q.RecordFailedSync(ctx, queries.RecordFailedSyncParams{
+			Uuid:  syncUuid,
+			Error: err.Error(),
+		})
+	}
+
+	// Treat that final DB update as a fatal error if the sync was successful; otherwise
+	// log it as a warning so we don't supersede the actual sync error
+	if recordResultErr != nil {
+		if err == nil {
+			log.Fatalf("Sync results were not recorded: %v", recordResultErr)
+		} else {
+			fmt.Printf("WARNING: Sync results were not recorded: %v\n", recordResultErr)
+		}
+	}
+
+	// Report results and exit
+	if err != nil {
+		log.Fatalf("Sync %s failed: %v", syncUuid, err)
+	}
+	fmt.Printf("Sync %s finished.\n", syncUuid)
+}
+
+func runSync(ctx context.Context, config *Config, q *queries.Queries) (int, []string, error) {
 	// Initialize a Google sheets API client and get a listing of all tapes with valid
 	// rows in the inventory spreadsheet
 	fmt.Printf("Listing tapes in the Golden VCR Inventory spreadsheet (%s)...\n", config.SpreadsheetId)
 	sheetsClient := sheets.NewClient(config.SheetsApiKey, config.SpreadsheetId)
 	tapes, sheetWarnings, err := sheets.ListTapes(ctx, sheetsClient)
 	if err != nil {
-		log.Fatalf("error listing tapes from spreadsheet: %v", err)
+		return -1, nil, fmt.Errorf("error listing tapes from spreadsheet: %w", err)
 	}
 	fmt.Printf("Got %d tapes:\n", len(tapes))
 	for _, tape := range tapes {
@@ -94,11 +153,11 @@ func main() {
 		config.SpacesBucketName,
 	)
 	if err != nil {
-		log.Fatalf("error initializing client for S3-compatible storage: %v", err)
+		return -1, nil, fmt.Errorf("error initializing client for S3-compatible storage: %w", err)
 	}
 	images, imageWarnings, err := storage.ListImages(ctx, storageClient)
 	if err != nil {
-		log.Fatalf("error retrieving image data from storage bucket: %v", err)
+		return -1, nil, fmt.Errorf("error retrieving image data from storage bucket: %w", err)
 	}
 	fmt.Printf("Got %d images:\n", len(images))
 	for _, image := range images {
@@ -158,14 +217,6 @@ func main() {
 			runtimeValue.Int32 = int32(tape.Runtime)
 		}
 
-		// Start a transaction so that we only commit a tape with all available images
-		tx, err := db.BeginTx(ctx, nil)
-		if err != nil {
-			log.Fatalf("failed to begin database transaction for tape %d", tape.Id)
-		}
-		defer tx.Rollback()
-		q := queries.New(tx)
-
 		// Upsert into the tape table to register our tape with its latest details
 		if err := q.SyncTape(ctx, queries.SyncTapeParams{
 			ID:      int32(tape.Id),
@@ -173,7 +224,7 @@ func main() {
 			Year:    yearValue,
 			Runtime: runtimeValue,
 		}); err != nil {
-			log.Fatalf("failed to sync tape %d: %v", tape.Id, err)
+			return -1, nil, fmt.Errorf("failed to sync tape %d: %w", tape.Id, err)
 		}
 
 		// Get the metadata for all images associated with this tape, and register each
@@ -188,14 +239,8 @@ func main() {
 				Height:  int32(image.GalleryData.Metadata.Height),
 				Rotated: image.GalleryData.Metadata.Rotated,
 			}); err != nil {
-				log.Fatalf("failed to sync image %d for tape %d: %v", image.GalleryData.Index, tape.Id, err)
+				return -1, nil, fmt.Errorf("failed to sync image %d for tape %d: %w", image.GalleryData.Index, tape.Id, err)
 			}
-		}
-
-		// Commit the transaction; we've finished this tape
-		fmt.Printf("tape %d: synced with %d images.\n", tape.Id, len(galleryImages))
-		if err := tx.Commit(); err != nil {
-			log.Fatalf("failed to commit database transaction for tape %d", tape.Id)
 		}
 		numTapesSynced++
 	}
@@ -207,6 +252,7 @@ func main() {
 			fmt.Printf("- %s\n", line)
 		}
 	}
+	return numTapesSynced, warningLines, nil
 }
 
 func formatConnectionString(host string, port int, dbname string, user string, password string, sslmode string) string {

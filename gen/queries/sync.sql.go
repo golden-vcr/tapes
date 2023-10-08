@@ -8,7 +8,64 @@ package queries
 import (
 	"context"
 	"database/sql"
+
+	"github.com/google/uuid"
 )
+
+const createSync = `-- name: CreateSync :exec
+insert into tapes.sync (
+    uuid,
+    started_at
+) values (
+    $1,
+    now()
+)
+`
+
+func (q *Queries) CreateSync(ctx context.Context, argUuid uuid.UUID) error {
+	_, err := q.db.ExecContext(ctx, createSync, argUuid)
+	return err
+}
+
+const recordFailedSync = `-- name: RecordFailedSync :exec
+update tapes.sync set
+    finished_at = now(),
+    error = $1::text
+where
+    sync.uuid = $2
+    and finished_at is null
+`
+
+type RecordFailedSyncParams struct {
+	Error string
+	Uuid  uuid.UUID
+}
+
+func (q *Queries) RecordFailedSync(ctx context.Context, arg RecordFailedSyncParams) error {
+	_, err := q.db.ExecContext(ctx, recordFailedSync, arg.Error, arg.Uuid)
+	return err
+}
+
+const recordSuccessfulSync = `-- name: RecordSuccessfulSync :exec
+update tapes.sync set
+    finished_at = now(),
+    num_tapes = $1::integer,
+    warnings = $2::text
+where
+    sync.uuid = $3
+    and finished_at is null
+`
+
+type RecordSuccessfulSyncParams struct {
+	NumTapes int32
+	Warnings string
+	Uuid     uuid.UUID
+}
+
+func (q *Queries) RecordSuccessfulSync(ctx context.Context, arg RecordSuccessfulSyncParams) error {
+	_, err := q.db.ExecContext(ctx, recordSuccessfulSync, arg.NumTapes, arg.Warnings, arg.Uuid)
+	return err
+}
 
 const syncImage = `-- name: SyncImage :exec
 insert into tapes.image (
