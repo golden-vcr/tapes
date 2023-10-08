@@ -38,10 +38,12 @@ func Test_ListTapes(t *testing.T) {
 					Title:   "Tape one",
 					Year:    1991,
 					Runtime: 60,
+					Tags:    []string{},
 				},
 				{
 					Id:    2,
 					Title: "Tape two",
+					Tags:  []string{},
 				},
 			},
 		},
@@ -90,6 +92,7 @@ func Test_ListTapes(t *testing.T) {
 				{
 					Id:    2,
 					Title: "Tape two",
+					Tags:  []string{},
 				},
 			},
 		},
@@ -114,6 +117,7 @@ func Test_ListTapes(t *testing.T) {
 					Title:   "Tape one",
 					Year:    1991,
 					Runtime: 60,
+					Tags:    []string{},
 				},
 			},
 		},
