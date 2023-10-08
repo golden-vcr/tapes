@@ -23,6 +23,7 @@ type indexMap struct {
 	titleColumnIndex   int
 	yearColumnIndex    int
 	runtimeColumnIndex int
+	columnIndicesByTag map[string]int
 }
 
 // newIndexMap builds an indexMap given the values in the first row of a spreadsheet, or
@@ -33,6 +34,7 @@ func newIndexMap(values []string) (indexMap, error) {
 		titleColumnIndex:   -1,
 		yearColumnIndex:    -1,
 		runtimeColumnIndex: -1,
+		columnIndicesByTag: make(map[string]int),
 	}
 	setIndex := func(name string, p *int, value int) error {
 		if *p >= 0 {
@@ -59,6 +61,8 @@ func newIndexMap(values []string) (indexMap, error) {
 			if err := setIndex("runtime", &m.runtimeColumnIndex, i); err != nil {
 				return m, err
 			}
+		} else if tagName := parseTagHeading(heading); tagName != "" {
+			m.columnIndicesByTag[tagName] = i
 		}
 	}
 	if m.idColumnIndex == -1 {
@@ -138,10 +142,20 @@ func (m *indexMap) parseRow(values rowValues) (*Tape, error) {
 		runtime = runtimeAsInt
 	}
 
+	// In columns for tags, any non-empty value indicates that the tape should have that
+	// tag
+	tags := make([]string, 0, 4)
+	for tag, columnIndex := range m.columnIndicesByTag {
+		if values.read(columnIndex) != "" {
+			tags = append(tags, tag)
+		}
+	}
+
 	return &Tape{
 		Id:      id,
 		Title:   title,
 		Year:    year,
 		Runtime: runtime,
+		Tags:    tags,
 	}, nil
 }

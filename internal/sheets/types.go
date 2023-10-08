@@ -11,4 +11,6 @@ type Tape struct {
 	Year int
 	// Approximate runtime of the tape in minutes, or 0 if unknown
 	Runtime int
+	// Tags that have been applied to this tape in the spreadsheet
+	Tags []string
 }

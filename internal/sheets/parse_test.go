@@ -24,6 +24,23 @@ func Test_newIndexMap(t *testing.T) {
 				titleColumnIndex:   1,
 				yearColumnIndex:    2,
 				runtimeColumnIndex: 3,
+				columnIndicesByTag: map[string]int{},
+			},
+		},
+		{
+			"tags are parsed as expected",
+			[]string{"id", "title", "year", "runtime", "Instructional?", "Arts + Crafts?", "History?"},
+			"",
+			indexMap{
+				idColumnIndex:      0,
+				titleColumnIndex:   1,
+				yearColumnIndex:    2,
+				runtimeColumnIndex: 3,
+				columnIndicesByTag: map[string]int{
+					"instructional": 4,
+					"arts+crafts":   5,
+					"history":       6,
+				},
 			},
 		},
 		{
@@ -35,6 +52,7 @@ func Test_newIndexMap(t *testing.T) {
 				titleColumnIndex:   1,
 				yearColumnIndex:    6,
 				runtimeColumnIndex: 3,
+				columnIndicesByTag: map[string]int{},
 			},
 		},
 		{
@@ -46,6 +64,7 @@ func Test_newIndexMap(t *testing.T) {
 				titleColumnIndex:   1,
 				yearColumnIndex:    2,
 				runtimeColumnIndex: 3,
+				columnIndicesByTag: map[string]int{},
 			},
 		},
 		{
@@ -118,7 +137,10 @@ func Test_rowValues_read(t *testing.T) {
 }
 
 func Test_parseRow(t *testing.T) {
-	m := indexMap{0, 1, 2, 3}
+	m := indexMap{0, 1, 2, 3, map[string]int{
+		"instructional": 4,
+		"history":       5,
+	}}
 	tests := []struct {
 		name    string
 		values  rowValues
@@ -127,64 +149,67 @@ func Test_parseRow(t *testing.T) {
 	}{
 		{
 			"ordinary tape is parsed OK",
-			[]string{"25", "Very cool tape", "1994", "78"},
+			[]string{"25", "Very cool tape", "1994", "78", "1", ""},
 			"",
 			&Tape{
 				Id:      25,
 				Title:   "Very cool tape",
 				Year:    1994,
 				Runtime: 78,
+				Tags:    []string{"instructional"},
 			},
 		},
 		{
 			"id is required",
-			[]string{"", "Very cool tape", "1994", "78"},
+			[]string{"", "Very cool tape", "1994", "78", "1", ""},
 			"'id' value is required",
 			nil,
 		},
 		{
 			"id must be an integer",
-			[]string{"foo", "Very cool tape", "1994", "78"},
+			[]string{"foo", "Very cool tape", "1994", "78", "1", ""},
 			"'id' value must be an integer (got 'foo')",
 			nil,
 		},
 		{
 			"title is required",
-			[]string{"25", "", "1994", "78"},
+			[]string{"25", "", "1994", "78", "1", ""},
 			"'title' value is required",
 			nil,
 		},
 		{
 			"year is not required and defaults to 0",
-			[]string{"25", "Very cool tape", "", "78"},
+			[]string{"25", "Very cool tape", "", "78", "1", ""},
 			"",
 			&Tape{
 				Id:      25,
 				Title:   "Very cool tape",
 				Year:    0,
 				Runtime: 78,
+				Tags:    []string{"instructional"},
 			},
 		},
 		{
 			"year must be an integer if set",
-			[]string{"25", "Very cool tape", "1988.5", "78"},
+			[]string{"25", "Very cool tape", "1988.5", "78", "1", ""},
 			"'year' value must be an integer (got '1988.5')",
 			nil,
 		},
 		{
 			"runtime is not required and defaults to 0",
-			[]string{"25", "Very cool tape", "1994", ""},
+			[]string{"25", "Very cool tape", "1994", "", "", "1"},
 			"",
 			&Tape{
 				Id:      25,
 				Title:   "Very cool tape",
 				Year:    1994,
 				Runtime: 0,
+				Tags:    []string{"history"},
 			},
 		},
 		{
 			"runtime must be an integer if set",
-			[]string{"25", "Very cool tape", "1994", "4h"},
+			[]string{"25", "Very cool tape", "1994", "4h", "1", ""},
 			"'runtime' value must be an integer (got '4h')",
 			nil,
 		},
