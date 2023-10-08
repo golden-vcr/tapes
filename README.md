@@ -1,7 +1,7 @@
 # tapes
 
-The **tapes**  API is responsible for encapsulating information about the tapes that
-are available in the Golden VCR library.
+The **tapes** API is responsible for encapsulating information about the tapes that are
+available in the Golden VCR library.
 
 The source of truth for tapes is the [**Golden VCR Inventory** spreadsheet](https://docs.google.com/spreadsheets/d/1cR9Lbw9_VGQcEn8eGD2b5MwGRGzKugKZ9PVFkrqmA7k/edit#gid=0)
 on Google Sheets. This application uses the Google Sheets API in order to access the

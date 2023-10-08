@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
-	"net/url"
 	"os"
 	"os/signal"
 	"strings"
@@ -16,6 +15,7 @@ import (
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
 
+	"github.com/golden-vcr/server-common/db"
 	"github.com/golden-vcr/tapes/gen/queries"
 	"github.com/golden-vcr/tapes/internal/sheets"
 	"github.com/golden-vcr/tapes/internal/storage"
@@ -55,7 +55,7 @@ func main() {
 	defer close()
 
 	// Connect to the tapes database so we can sync data to it from sheets and S3
-	connectionString := formatConnectionString(
+	connectionString := db.FormatConnectionString(
 		config.DatabaseHost,
 		config.DatabasePort,
 		config.DatabaseName,
@@ -253,13 +253,4 @@ func runSync(ctx context.Context, config *Config, q *queries.Queries) (int, []st
 		}
 	}
 	return numTapesSynced, warningLines, nil
-}
-
-func formatConnectionString(host string, port int, dbname string, user string, password string, sslmode string) string {
-	urlencodedPassword := url.QueryEscape(password)
-	s := fmt.Sprintf("postgres://%s:%s@%s:%d/%s", user, urlencodedPassword, host, port, dbname)
-	if sslmode != "" {
-		s += fmt.Sprintf("?sslmode=%s", sslmode)
-	}
-	return s
 }

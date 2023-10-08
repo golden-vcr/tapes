@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"net/url"
 	"os"
 	"os/signal"
 	"syscall"
@@ -16,6 +15,7 @@ import (
 	_ "github.com/lib/pq"
 	"golang.org/x/sync/errgroup"
 
+	"github.com/golden-vcr/server-common/db"
 	"github.com/golden-vcr/tapes/gen/queries"
 	"github.com/golden-vcr/tapes/internal/server"
 )
@@ -48,7 +48,7 @@ func main() {
 	ctx, close := signal.NotifyContext(context.Background(), os.Interrupt, os.Kill, syscall.SIGTERM)
 	defer close()
 
-	connectionString := formatConnectionString(
+	connectionString := db.FormatConnectionString(
 		config.DatabaseHost,
 		config.DatabasePort,
 		config.DatabaseName,
@@ -87,13 +87,4 @@ func main() {
 	} else {
 		log.Fatalf("error running server: %v", err)
 	}
-}
-
-func formatConnectionString(host string, port int, dbname string, user string, password string, sslmode string) string {
-	urlencodedPassword := url.QueryEscape(password)
-	s := fmt.Sprintf("postgres://%s:%s@%s:%d/%s", user, urlencodedPassword, host, port, dbname)
-	if sslmode != "" {
-		s += fmt.Sprintf("?sslmode=%s", sslmode)
-	}
-	return s
 }
