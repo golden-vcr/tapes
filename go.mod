@@ -5,7 +5,7 @@ go 1.21.1
 require (
 	github.com/aws/aws-sdk-go v1.45.4
 	github.com/codingconcepts/env v0.0.0-20200821220118-a8fbf8d84482
-	github.com/golden-vcr/server-common v0.0.0-20231008160834-a3155a36e1c0
+	github.com/golden-vcr/server-common v0.2.0
 	github.com/google/uuid v1.3.1
 	github.com/joho/godotenv v1.5.1
 	github.com/lib/pq v1.10.9

@@ -5,8 +5,10 @@ github.com/codingconcepts/env v0.0.0-20200821220118-a8fbf8d84482/go.mod h1:TM9ug
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
-github.com/golden-vcr/server-common v0.0.0-20231008160834-a3155a36e1c0 h1:EFEsGdvHqpW/u9zyoyzQyNwPRMRu7NMmRPPB6mUHXaM=
-github.com/golden-vcr/server-common v0.0.0-20231008160834-a3155a36e1c0/go.mod h1:+ldkAOYcd0cMM5gSbgoEyn8wf8LF4PdaFdHnjyVamtk=
+github.com/golden-vcr/server-common v0.1.0 h1:1jQ+hfUpQpmbtcqwzrLemk+csstjMzmxbM+eLWZ/g5g=
+github.com/golden-vcr/server-common v0.1.0/go.mod h1:BnDmeVjFiwkWHJIshKNRU3P16nDIXl53aSMdQTP5vzs=
+github.com/golden-vcr/server-common v0.2.0 h1:UjBKWul7YWT0pLDxFU49m6hIuo/q2Za+aK75/AjjgMc=
+github.com/golden-vcr/server-common v0.2.0/go.mod h1:BnDmeVjFiwkWHJIshKNRU3P16nDIXl53aSMdQTP5vzs=
 github.com/google/uuid v1.3.1 h1:KjJaJ9iWZ3jOFZIf1Lqf4laDRCasjl0BCmnEGxkdLb4=
 github.com/google/uuid v1.3.1/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+yHo=
 github.com/jmespath/go-jmespath v0.4.0 h1:BEgLn5cpjn8UN1mAw4NjwDrS35OdebyEtFe+9YPoQUg=
