@@ -1,0 +1,101 @@
+openapi: 3.0.3
+info:
+  version: 0.1.0
+  title: tapes
+  description: |
+    The **tapes** API porvides information about the tapes and images that have been
+    synced to the tapes database.
+externalDocs:
+  description: 'github.com/golden-vcr/tapes'
+  url: https://github.com/golden-vcr/tapes
+servers:
+  - url: https://goldenvcr.com/api/tapes
+tags:
+  - name: catalog
+    description: |-
+      Public endpoints that provide information about the tapes available for screening
+      in the Golden VCR Library.
+paths:
+  /catalog:
+    get:
+      tags:
+        - catalog
+      summary: |-
+        Returns a listing of tapes
+      operationId: getCatalog
+      responses:
+        '200':
+          description: |-
+            Catalog data was successfully fetched
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatalogListing'
+components:
+  schemas:
+    CatalogListing:
+      type: object
+      properties:
+        imageHost:
+          type: string
+          description: Base URL from which image URLs can be constructed
+          example: https://golden-vcr-images.nyc3.digitaloceanspaces.com
+        items:
+          type: array
+          description: Array of all tapes in the Golden VCR library
+          items:
+            $ref: '#/components/schemas/CatalogItem'
+    CatalogItem:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: Unique identifier for the page
+          example: 13
+        title:
+          type: string
+          description: Title of the tape
+          example: Build Your Own Computer Desk (American Plywood Association)
+        year:
+          type: integer
+          description: Year of publication, or 0 if unknown
+          example: 1987
+        runtime:
+          type: integer
+          description: Approximate runtime in minutes, or 0 if unknown
+          example: 25
+        thumbnail:
+          type: string
+          description: Filename of thumbanil image, served relative to imageHost URL
+          example: 0013_thumb.jpg
+        images:
+          type: array
+          description: Array of one or more full-sized gallery images scanned from this tape
+          items:
+            $ref: '#/components/schemas/GalleryImage'
+    GalleryImage:
+      type: object
+      properties:
+        filename:
+          type: string
+          description: Filename of the image, served relative to imageHost URL
+          example: 0013_a.jpg
+        width:
+          type: integer
+          description: Width of the image in pixels
+          example: 624
+        height:
+          type: integer
+          description: Height of the image in pixels
+          example: 1116
+        color:
+          type: string
+          description: Hex string representing the dominant color in the image
+          example: '#c9ab86'
+        rotated:
+          type: boolean
+          description: |
+            Whether the image was rotated 90 degrees CCW in order to have a vertical
+            aspect ratio, in which case it may be rotated 90 degrees CW to be displayed
+            with the text upright
+          example: false
