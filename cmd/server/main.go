@@ -11,13 +11,14 @@ import (
 	"syscall"
 
 	"github.com/codingconcepts/env"
+	"github.com/gorilla/mux"
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/golden-vcr/server-common/db"
 	"github.com/golden-vcr/tapes/gen/queries"
-	"github.com/golden-vcr/tapes/internal/server"
+	"github.com/golden-vcr/tapes/internal/catalog"
 )
 
 type Config struct {
@@ -36,6 +37,7 @@ type Config struct {
 }
 
 func main() {
+	// Parse config from environment variables
 	err := godotenv.Load()
 	if err != nil && !os.IsNotExist(err) {
 		log.Fatalf("error loading .env file: %v", err)
@@ -45,9 +47,12 @@ func main() {
 		log.Fatalf("error loading config: %v", err)
 	}
 
+	// Shut down cleanly on signal
 	ctx, close := signal.NotifyContext(context.Background(), os.Interrupt, os.Kill, syscall.SIGTERM)
 	defer close()
 
+	// Configure our database connection and initialize a Queries struct, so we can read
+	// from the 'tapes' schema in response to HTTP requests
 	connectionString := db.FormatConnectionString(
 		config.DatabaseHost,
 		config.DatabasePort,
@@ -66,11 +71,22 @@ func main() {
 	}
 	q := queries.New(db)
 
-	bucketUrl := fmt.Sprintf("https://%s.%s", config.SpacesBucketName, config.SpacesEndpointOrigin)
-	srv := server.New(q, bucketUrl)
-	addr := fmt.Sprintf("%s:%d", config.BindAddr, config.ListenPort)
-	server := &http.Server{Addr: addr, Handler: srv}
+	// Start setting up our HTTP handlers, using gorilla/mux for routing
+	r := mux.NewRouter()
 
+	// Clients can hit GET /catalog to retrieve information about tapes in the Golden
+	// VCR Library
+	{
+		imageHostUrl := fmt.Sprintf("https://%s.%s", config.SpacesBucketName, config.SpacesEndpointOrigin)
+		catalogServer := catalog.NewServer(q, imageHostUrl)
+		catalogServer.RegisterRoutes(r.PathPrefix("/catalog").Subrouter())
+	}
+
+	addr := fmt.Sprintf("%s:%d", config.BindAddr, config.ListenPort)
+	server := &http.Server{Addr: addr, Handler: r}
+
+	// Handle incoming HTTP connections until our top-level context is canceled, at
+	// which point shut down cleanly
 	fmt.Printf("Listening on %s...\n", addr)
 	var wg errgroup.Group
 	wg.Go(server.ListenAndServe)
