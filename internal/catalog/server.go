@@ -103,7 +103,7 @@ func getPlaceholderTags(tapeId int) []string {
 	for i := 0; i < numTags; i++ {
 		tagIndex := r.Intn(len(allTags))
 		for hasPlaceholderTag(tags, allTags[tagIndex]) {
-			tagIndex++
+			tagIndex = (tagIndex + 1) % len(allTags)
 		}
 		tags = append(tags, allTags[tagIndex])
 	}
