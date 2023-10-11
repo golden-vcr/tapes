@@ -53,7 +53,7 @@ func Test_Server_handleGetListing(t *testing.T) {
 				},
 			},
 			http.StatusOK,
-			`{"imageHost":"https://my-images.biz","items":[{"id":1,"title":"Tape one","year":1991,"runtime":120,"thumbnail":"0001_thumb.jpg","images":[{"filename":"0001_a.jpg","width":440,"height":1301,"color":"#ffccee","rotated":false},{"filename":"0001_b.jpg","width":441,"height":1300,"color":"#eebbee","rotated":true}]}]}`,
+			`{"imageHost":"https://my-images.biz","items":[{"id":1,"title":"Tape one","year":1991,"runtime":120,"thumbnail":"0001_thumb.jpg","images":[{"filename":"0001_a.jpg","width":440,"height":1301,"color":"#ffccee","rotated":false},{"filename":"0001_b.jpg","width":441,"height":1300,"color":"#eebbee","rotated":true}],"tags":["fitness","instructional"]}]}`,
 		},
 		{
 			"null year and runtime are represented as 0",
@@ -77,7 +77,7 @@ func Test_Server_handleGetListing(t *testing.T) {
 				},
 			},
 			http.StatusOK,
-			`{"imageHost":"https://my-images.biz","items":[{"id":1,"title":"Tape one","year":0,"runtime":0,"thumbnail":"0001_thumb.jpg","images":[{"filename":"0001_a.jpg","width":440,"height":1301,"color":"#ffccee","rotated":false}]}]}`,
+			`{"imageHost":"https://my-images.biz","items":[{"id":1,"title":"Tape one","year":0,"runtime":0,"thumbnail":"0001_thumb.jpg","images":[{"filename":"0001_a.jpg","width":440,"height":1301,"color":"#ffccee","rotated":false}],"tags":["fitness","instructional"]}]}`,
 		},
 		{
 			"unexpected JSON format for image data is a 500 error",

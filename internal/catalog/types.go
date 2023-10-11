@@ -12,6 +12,7 @@ type Item struct {
 	RuntimeInMinutes       int            `json:"runtime"`
 	ThumbnailImageFilename string         `json:"thumbnail"`
 	Images                 []GalleryImage `json:"images"`
+	Tags                   []string       `json:"tags"`
 }
 
 type GalleryImage struct {

@@ -3,6 +3,7 @@ package catalog
 import (
 	"context"
 	"encoding/json"
+	"math/rand"
 	"net/http"
 
 	"github.com/golden-vcr/tapes/gen/queries"
@@ -73,6 +74,7 @@ func (s *Server) handleGetListing(res http.ResponseWriter, req *http.Request) {
 			RuntimeInMinutes:       runtime,
 			ThumbnailImageFilename: storage.GetImageFilename(int(row.ID), storage.ImageTypeThumbnail, -1),
 			Images:                 galleryImages,
+			Tags:                   getPlaceholderTags(int(row.ID)),
 		})
 	}
 
@@ -83,4 +85,36 @@ func (s *Server) handleGetListing(res http.ResponseWriter, req *http.Request) {
 	if err := json.NewEncoder(res).Encode(result); err != nil {
 		http.Error(res, err.Error(), http.StatusInternalServerError)
 	}
+}
+
+func getPlaceholderTags(tapeId int) []string {
+	allTags := []string{"instructional", "promotional", "travel", "educational", "self-help", "childrens", "religion", "fitness", "christmas", "features", "mystery", "ephemera", "sports", "history", "technology", "arts+crafts"}
+	r := rand.New(rand.NewSource(int64(tapeId * 1000)))
+
+	numTags := 1
+	f := r.Float32()
+	if f > 0.9 {
+		numTags = 3
+	} else if f > 0.6 {
+		numTags = 2
+	}
+
+	tags := make([]string, 0, numTags)
+	for i := 0; i < numTags; i++ {
+		tagIndex := r.Intn(len(allTags))
+		for hasPlaceholderTag(tags, allTags[tagIndex]) {
+			tagIndex++
+		}
+		tags = append(tags, allTags[tagIndex])
+	}
+	return tags
+}
+
+func hasPlaceholderTag(tags []string, tag string) bool {
+	for i := range tags {
+		if tags[i] == tag {
+			return true
+		}
+	}
+	return false
 }
