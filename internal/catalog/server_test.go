@@ -49,7 +49,7 @@ func Test_Server_handleGetListing(t *testing.T) {
 								Rotated: true,
 							},
 						}),
-						Tags: []byte(`["fitness","instructional"]`),
+						Tags: []string{"fitness", "instructional"},
 					},
 				},
 			},
@@ -74,7 +74,7 @@ func Test_Server_handleGetListing(t *testing.T) {
 								Rotated: false,
 							},
 						}),
-						Tags: []byte(`["fitness","instructional"]`),
+						Tags: []string{"fitness", "instructional"},
 					},
 				},
 			},
@@ -96,31 +96,6 @@ func Test_Server_handleGetListing(t *testing.T) {
 			},
 			http.StatusInternalServerError,
 			"failed to parse TapeImage array from JSON data: json: cannot unmarshal string into Go struct field TapeImage.index of type int32",
-		},
-		{
-			"unexpected JSON format for tag names is a 500 error",
-			&mockQueries{
-				rows: []queries.GetTapesRow{
-					{
-						ID:      1,
-						Title:   "Tape one",
-						Year:    sql.NullInt32{},
-						Runtime: sql.NullInt32{},
-						Images: encodeTapeImages(t, []db.TapeImage{
-							{
-								Index:   0,
-								Color:   "#ffccee",
-								Width:   440,
-								Height:  1301,
-								Rotated: false,
-							},
-						}),
-						Tags: []byte(`{"fitness":"yes","instructional":"maybe"}`),
-					},
-				},
-			},
-			http.StatusInternalServerError,
-			"failed to parse tag name array from JSON data: json: cannot unmarshal object into Go value of type []string",
 		},
 		{
 			"database error is a 500 error",

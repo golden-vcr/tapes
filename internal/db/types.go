@@ -24,13 +24,3 @@ func ParseTapeImageArray(data json.RawMessage) ([]TapeImage, error) {
 	}
 	return images, nil
 }
-
-// ParseTapeTagsArray accepts a JSON-formatted array of strings, representing the list
-// of tag names returned by the GetTapes query
-func ParseTapeTagsArray(data json.RawMessage) ([]string, error) {
-	var tags []string
-	if err := json.Unmarshal(data, &tags); err != nil {
-		return nil, fmt.Errorf("failed to parse tag name array from JSON data: %v", err)
-	}
-	return tags, nil
-}

@@ -9,6 +9,8 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+
+	"github.com/lib/pq"
 )
 
 const getTapes = `-- name: GetTapes :many
@@ -24,7 +26,7 @@ select
         'height', image.height,
         'rotated', image.rotated
     ) order by image.index) as images,
-    (select jsonb_agg(tag_name) from tapes.tape_to_tag order by tag_name) as tags
+    (select tag_name from tapes.tape_to_tag order by tag_name)::text[] as tags
 from tapes.tape
 join tapes.image on image.tape_id = tape.id
 group by tape.id
@@ -37,7 +39,7 @@ type GetTapesRow struct {
 	Year    sql.NullInt32
 	Runtime sql.NullInt32
 	Images  json.RawMessage
-	Tags    json.RawMessage
+	Tags    []string
 }
 
 func (q *Queries) GetTapes(ctx context.Context) ([]GetTapesRow, error) {
@@ -55,7 +57,7 @@ func (q *Queries) GetTapes(ctx context.Context) ([]GetTapesRow, error) {
 			&i.Year,
 			&i.Runtime,
 			&i.Images,
-			&i.Tags,
+			pq.Array(&i.Tags),
 		); err != nil {
 			return nil, err
 		}

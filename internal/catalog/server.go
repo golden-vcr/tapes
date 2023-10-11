@@ -47,11 +47,6 @@ func (s *Server) handleGetListing(res http.ResponseWriter, req *http.Request) {
 			http.Error(res, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		tags, err := db.ParseTapeTagsArray(row.Tags)
-		if err != nil {
-			http.Error(res, err.Error(), http.StatusInternalServerError)
-			return
-		}
 
 		galleryImages := make([]GalleryImage, 0, len(images))
 		for _, image := range images {
@@ -78,7 +73,7 @@ func (s *Server) handleGetListing(res http.ResponseWriter, req *http.Request) {
 			RuntimeInMinutes:       runtime,
 			ThumbnailImageFilename: storage.GetImageFilename(int(row.ID), storage.ImageTypeThumbnail, -1),
 			Images:                 galleryImages,
-			Tags:                   tags,
+			Tags:                   row.Tags,
 		})
 	}
 
