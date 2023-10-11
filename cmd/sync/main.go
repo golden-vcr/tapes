@@ -179,9 +179,11 @@ func runSync(ctx context.Context, config *Config, q *queries.Queries) (int, []st
 	// require that a tape have a thumbnail image before we record that the tape exists,
 	// so we can assume that every tape has a thumbnail image at %04d_thumb.jpg. Collect
 	// all of the gallery images that we need to record for each tape.
-	galleryImagesByTapeId := make(map[int][]*storage.Image)
+	galleryImagesByTapeId := make(map[int][]storage.Image)
 	for _, image := range images {
-		galleryImagesByTapeId[image.TapeId] = append(galleryImagesByTapeId[image.TapeId], &image)
+		if image.Type == storage.ImageTypeGallery {
+			galleryImagesByTapeId[image.TapeId] = append(galleryImagesByTapeId[image.TapeId], image)
+		}
 	}
 
 	// Collect a list of all warnings, line-by-line as strings, so we can present a
@@ -201,7 +203,7 @@ func runSync(ctx context.Context, config *Config, q *queries.Queries) (int, []st
 		// Don't sync a tape unless it has at least one gallery image stored
 		galleryImages, ok := galleryImagesByTapeId[tape.Id]
 		if !ok || len(galleryImages) == 0 {
-			warningLines = append(warningLines, fmt.Sprintf("Tape %d has no image files; ignoring it.", tape.Id))
+			warningLines = append(warningLines, fmt.Sprintf("Tape %d has no gallery images; ignoring it.", tape.Id))
 			continue
 		}
 
