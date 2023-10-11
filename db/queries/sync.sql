@@ -43,6 +43,18 @@ on conflict (id) do update set
     year = excluded.year,
     runtime = excluded.runtime;
 
+-- name: SyncTapeTags :exec
+with deleted as (
+    delete from tapes.tape_to_tag
+        where tape_id = @tape_id
+        and not (tag_name = any(@tag_names::text[]))
+)
+insert into tapes.tape_to_tag (tape_id, tag_name)
+select
+    @tape_id as tape_id,
+    tag_name from unnest(@tag_names::text[]) as tag_name
+on conflict do nothing;
+
 -- name: SyncImage :exec
 insert into tapes.image (
     tape_id,

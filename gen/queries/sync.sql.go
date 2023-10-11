@@ -10,6 +10,7 @@ import (
 	"database/sql"
 
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 )
 
 const createSync = `-- name: CreateSync :exec
@@ -145,5 +146,28 @@ func (q *Queries) SyncTape(ctx context.Context, arg SyncTapeParams) error {
 		arg.Year,
 		arg.Runtime,
 	)
+	return err
+}
+
+const syncTapeTags = `-- name: SyncTapeTags :exec
+with deleted as (
+    delete from tapes.tape_to_tag
+        where tape_id = $1
+        and not (tag_name = any($2::text[]))
+)
+insert into tapes.tape_to_tag (tape_id, tag_name)
+select
+    $1 as tape_id,
+    tag_name from unnest($2::text[]) as tag_name
+on conflict do nothing
+`
+
+type SyncTapeTagsParams struct {
+	TapeID   int32
+	TagNames []string
+}
+
+func (q *Queries) SyncTapeTags(ctx context.Context, arg SyncTapeTagsParams) error {
+	_, err := q.db.ExecContext(ctx, syncTapeTags, arg.TapeID, pq.Array(arg.TagNames))
 	return err
 }

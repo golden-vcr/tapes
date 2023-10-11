@@ -55,3 +55,11 @@ type TapesTape struct {
 	// Runtime (in minutes) noted for this tape in the spreadsheet; or NULL if unknown.
 	Runtime sql.NullInt32
 }
+
+// Association of a specific tag name with a given tape.
+type TapesTapeToTag struct {
+	// Foreign-key reference to the tape which has this tag.
+	TapeID int32
+	// Canonical name of the tag. Tags are identified solely by a lowercase string, e.g. "instructional", "arts+crafts", "christmas".
+	TagName string
+}

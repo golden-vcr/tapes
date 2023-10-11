@@ -10,8 +10,10 @@ select
         'width', image.width,
         'height', image.height,
         'rotated', image.rotated
-    ) order by image.index) as images
+    ) order by image.index) as images,
+    jsonb_agg(tape_to_tag.tag_name order by tape_to_tag.tag_name) as tags
 from tapes.tape
 join tapes.image on image.tape_id = tape.id
+join tapes.tape_to_tag on tape_to_tag.tape_id = tape.id
 group by tape.id
 order by tape.id;

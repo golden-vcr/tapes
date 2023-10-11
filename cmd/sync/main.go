@@ -229,6 +229,15 @@ func runSync(ctx context.Context, config *Config, q *queries.Queries) (int, []st
 			return -1, nil, fmt.Errorf("failed to sync tape %d: %w", tape.Id, err)
 		}
 
+		// Update tape_to_tag records for this tape ID, ensuring that the set of tags
+		// associated with this tape matches exactly what we parsed from the spreadsheet
+		if err := q.SyncTapeTags(ctx, queries.SyncTapeTagsParams{
+			TapeID:   int32(tape.Id),
+			TagNames: tape.Tags,
+		}); err != nil {
+			return -1, nil, fmt.Errorf("failed to sync tags for tape %d: %w", tape.Id, err)
+		}
+
 		// Get the metadata for all images associated with this tape, and register each
 		// of those images
 		for _, image := range galleryImages {

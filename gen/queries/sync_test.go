@@ -123,6 +123,43 @@ func Test_SyncTape(t *testing.T) {
 	querytest.AssertCount(t, tx, 1, "SELECT COUNT(*) FROM tapes.tape")
 }
 
+func Test_SyncTapeTags(t *testing.T) {
+	tx := querytest.PrepareTx(t)
+	q := queries.New(tx)
+
+	querytest.AssertCount(t, tx, 0, "SELECT COUNT(*) FROM tapes.tape_to_tag")
+
+	err := q.SyncTape(context.Background(), queries.SyncTapeParams{
+		ID:    15,
+		Title: "Test tape",
+	})
+	assert.NoError(t, err)
+
+	err = q.SyncTapeTags(context.Background(), queries.SyncTapeTagsParams{
+		TapeID:   15,
+		TagNames: []string{"instructional", "arts+crafts"},
+	})
+	assert.NoError(t, err)
+	querytest.AssertCount(t, tx, 2, `
+		SELECT COUNT(*) FROM tapes.tape_to_tag
+			WHERE tape_id = 15
+			AND tag_name IN ('instructional', 'arts+crafts')
+	`)
+
+	err = q.SyncTapeTags(context.Background(), queries.SyncTapeTagsParams{
+		TapeID:   15,
+		TagNames: []string{"instructional", "fitness"},
+	})
+	assert.NoError(t, err)
+	querytest.AssertCount(t, tx, 2, `
+		SELECT COUNT(*) FROM tapes.tape_to_tag
+			WHERE tape_id = 15
+			AND tag_name IN ('instructional', 'fitness')
+	`)
+
+	querytest.AssertCount(t, tx, 2, "SELECT COUNT(*) FROM tapes.tape_to_tag")
+}
+
 func Test_SyncImage(t *testing.T) {
 	tx := querytest.PrepareTx(t)
 	q := queries.New(tx)

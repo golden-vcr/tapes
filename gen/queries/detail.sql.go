@@ -23,9 +23,11 @@ select
         'width', image.width,
         'height', image.height,
         'rotated', image.rotated
-    ) order by image.index) as images
+    ) order by image.index) as images,
+    jsonb_agg(tape_to_tag.tag_name order by tape_to_tag.tag_name) as tags
 from tapes.tape
 join tapes.image on image.tape_id = tape.id
+join tapes.tape_to_tag on tape_to_tag.tape_id = tape.id
 group by tape.id
 order by tape.id
 `
@@ -36,6 +38,7 @@ type GetTapesRow struct {
 	Year    sql.NullInt32
 	Runtime sql.NullInt32
 	Images  json.RawMessage
+	Tags    json.RawMessage
 }
 
 func (q *Queries) GetTapes(ctx context.Context) ([]GetTapesRow, error) {
@@ -53,6 +56,7 @@ func (q *Queries) GetTapes(ctx context.Context) ([]GetTapesRow, error) {
 			&i.Year,
 			&i.Runtime,
 			&i.Images,
+			&i.Tags,
 		); err != nil {
 			return nil, err
 		}
