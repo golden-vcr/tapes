@@ -11,7 +11,12 @@ select
         'height', image.height,
         'rotated', image.rotated
     ) order by image.index) as images,
-    array(select tag_name from tapes.tape_to_tag order by tag_name)::text[] as tags
+    array(
+        select tag_name
+        from tapes.tape_to_tag
+        where tape_to_tag.tape_id = tape.id
+        order by tag_name
+    )::text[] as tags
 from tapes.tape
 join tapes.image on image.tape_id = tape.id
 group by tape.id
