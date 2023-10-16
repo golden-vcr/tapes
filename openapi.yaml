@@ -31,6 +31,32 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/CatalogListing'
+  /catalog/{tapeId}:
+    get:
+      tags:
+        - catalog
+      summary: |-
+        Returns the details of a single tape
+      parameters:
+        - in: path
+          name: tapeId
+          schema:
+            type: integer
+          required: true
+          description: Unique identifier for the tape to look up
+          example: 13
+      operationId: getCatalogItem
+      responses:
+        '200':
+          description: |-
+            Tape was found; details follow
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatalogItem'
+        '404':
+          description: |-
+            No tape exists with the given ID
 components:
   schemas:
     CatalogListing:
