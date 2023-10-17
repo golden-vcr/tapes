@@ -29,6 +29,7 @@ variables required in [`main.go`](./cmd/server/main.go). If you have the
 simply open a shell there and run:
 
 - `terraform output -raw sheets_api_env > ../tapes/.env`
+- `terraform output -raw twitch_extension_client_env >> ../tapes/.env`
 - `terraform output -raw images_s3_env >> ../tapes/.env`
 - `./local-db.sh env >> ../showtime/.env`
 

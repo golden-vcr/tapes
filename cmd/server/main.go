@@ -14,6 +14,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
+	"github.com/rs/cors"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/golden-vcr/server-common/db"
@@ -27,6 +28,8 @@ type Config struct {
 
 	SpacesBucketName     string `env:"SPACES_BUCKET_NAME" required:"true"`
 	SpacesEndpointOrigin string `env:"SPACES_ENDPOINT_URL" required:"true"`
+
+	TwitchExtensionClientId string `env:"TWITCH_EXTENSION_CLIENT_ID" required:"true"`
 
 	DatabaseHost     string `env:"PGHOST" required:"true"`
 	DatabasePort     int    `env:"PGPORT" required:"true"`
@@ -82,8 +85,17 @@ func main() {
 		catalogServer.RegisterRoutes(r.PathPrefix("/catalog").Subrouter())
 	}
 
+	// Inject CORS support, allowing the Twitch-hosted extension to make read-only
+	// requests to all tapes API endpoints
+	withCors := cors.New(cors.Options{
+		AllowedOrigins: []string{
+			"https://localhost:5180",
+			fmt.Sprintf("https://%s.ext-twitch.tv", config.TwitchExtensionClientId),
+		},
+		AllowedMethods: []string{http.MethodGet},
+	})
 	addr := fmt.Sprintf("%s:%d", config.BindAddr, config.ListenPort)
-	server := &http.Server{Addr: addr, Handler: r}
+	server := &http.Server{Addr: addr, Handler: withCors.Handler(r)}
 
 	// Handle incoming HTTP connections until our top-level context is canceled, at
 	// which point shut down cleanly
