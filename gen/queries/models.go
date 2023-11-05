@@ -11,6 +11,14 @@ import (
 	"github.com/google/uuid"
 )
 
+// Records the fact that a specific user has marked a single tape as one of their favorite tapes.
+type TapesFavorite struct {
+	// ID of the user who marked this tape as a favorite.
+	TwitchUserID string
+	// ID of the tape that the user has marked as a favorite.
+	TapeID int32
+}
+
 // Metadata for a single image scanned from a specific tape.
 type TapesImage struct {
 	TapeID int32

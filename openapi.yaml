@@ -15,6 +15,10 @@ tags:
     description: |-
       Public endpoints that provide information about the tapes available for screening
       in the Golden VCR Library.
+  - name: favorites
+    description: |-
+      Endpoints that allow an authenticated user to manage which tapes they've selected
+      as their favorites.
 paths:
   /catalog:
     get:
@@ -57,6 +61,50 @@ paths:
         '404':
           description: |-
             No tape exists with the given ID
+  /favorites:
+    get:
+      tags:
+        - favorites
+      summary: |-
+        Returns the set of favorite tape IDs for the authenticated user
+      security:
+        - twitchUserAccessToken: []
+      operationId: getFavorites
+      responses:
+        '200':
+          description: |-
+            Authentication OK; returning a set of 0 or more favorite tape IDs.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FavoriteTapeSet'
+        '401':
+          description: |-
+            Authentication failed; caller's identity could not be ascertained.
+    patch:
+      tags:
+        - favorites
+      summary: |-
+        Allows a single tape to be registered (or unregistered) as a favorite for the
+        authenticated user
+      security:
+        - twitchUserAccessToken: []
+      operationId: patchFavorites
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FavoriteTapeChange'
+      responses:
+        '204':
+          description: |-
+            OK; database state for the given tape and user now reflects the request.
+        '400':
+          description: |-
+            Request refers to an invalid tape ID.
+        '401':
+          description: |-
+            Authentication failed; caller's identity could not be ascertained.
 components:
   schemas:
     CatalogListing:
@@ -125,3 +173,24 @@ components:
             aspect ratio, in which case it may be rotated 90 degrees CW to be displayed
             with the text upright
           example: false
+    FavoriteTapeSet:
+      type: object
+      properties:
+        tapeIds:
+          type: array
+          description: List of every tape ID which the user has marked as a favorite
+          items:
+            type: integer
+          example: [1, 3, 42]
+    FavoriteTapeChange:
+      type: object
+      properties:
+        tapeId:
+          type: integer
+          example: 44
+        isFavorite:
+          type: boolean
+  securitySchemes:
+    twitchUserAccessToken:
+      type: http
+      scheme: bearer

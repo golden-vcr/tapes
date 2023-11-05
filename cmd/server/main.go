@@ -17,9 +17,11 @@ import (
 	"github.com/rs/cors"
 	"golang.org/x/sync/errgroup"
 
+	"github.com/golden-vcr/auth"
 	"github.com/golden-vcr/server-common/db"
 	"github.com/golden-vcr/tapes/gen/queries"
 	"github.com/golden-vcr/tapes/internal/catalog"
+	"github.com/golden-vcr/tapes/internal/favorites"
 )
 
 type Config struct {
@@ -30,6 +32,8 @@ type Config struct {
 	SpacesEndpointOrigin string `env:"SPACES_ENDPOINT_URL" required:"true"`
 
 	TwitchExtensionClientId string `env:"TWITCH_EXTENSION_CLIENT_ID" required:"true"`
+
+	AuthURL string `env:"AUTH_URL" default:"http://localhost:5002"`
 
 	DatabaseHost     string `env:"PGHOST" required:"true"`
 	DatabasePort     int    `env:"PGPORT" required:"true"`
@@ -74,6 +78,10 @@ func main() {
 	}
 	q := queries.New(db)
 
+	// Some requests carry a user authorization token identifying the user, which is
+	// required for certain features (e.g. keeping track of users' favorite tapes)
+	authClient := auth.NewClient(config.AuthURL)
+
 	// Start setting up our HTTP handlers, using gorilla/mux for routing
 	r := mux.NewRouter()
 
@@ -83,6 +91,14 @@ func main() {
 		imageHostUrl := fmt.Sprintf("https://%s.%s", config.SpacesBucketName, config.SpacesEndpointOrigin)
 		catalogServer := catalog.NewServer(q, imageHostUrl)
 		catalogServer.RegisterRoutes(r.PathPrefix("/catalog").Subrouter())
+	}
+
+	// Once logged in, users can hit GET /favorites to get the set of tape IDs that a
+	// user has selected as their favorites, and can use PATCH /favorites to change
+	// their favorite tape selection
+	{
+		favoritesServer := favorites.NewServer(q)
+		favoritesServer.RegisterRoutes(authClient, r.PathPrefix("/favorites").Subrouter())
 	}
 
 	// Inject CORS support, allowing the Twitch-hosted extension to make read-only
