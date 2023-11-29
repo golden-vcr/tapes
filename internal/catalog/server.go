@@ -31,6 +31,7 @@ type Server struct {
 func NewServer(q Queries, lookup users.Lookup, imageHostUrl string) *Server {
 	return &Server{
 		q:            q,
+		lookup:       lookup,
 		imageHostUrl: imageHostUrl,
 	}
 }
