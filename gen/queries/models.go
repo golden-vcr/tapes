@@ -62,6 +62,8 @@ type TapesTape struct {
 	Year sql.NullInt32
 	// Runtime (in minutes) noted for this tape in the spreadsheet; or NULL if unknown.
 	Runtime sql.NullInt32
+	// Twitch User ID of the viewer who contributed this tape to the library, if any.
+	ContributorID sql.NullString
 }
 
 // Association of a specific tag name with a given tape.

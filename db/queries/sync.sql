@@ -30,18 +30,21 @@ insert into tapes.tape (
     created_at,
     title,
     year,
-    runtime
+    runtime,
+    contributor_id
 ) values (
     @id,
     now(),
     @title,
     sqlc.narg('year'),
-    sqlc.narg('runtime')
+    sqlc.narg('runtime'),
+    sqlc.narg('contributor_id')
 )
 on conflict (id) do update set
     title = excluded.title,
     year = excluded.year,
-    runtime = excluded.runtime;
+    runtime = excluded.runtime,
+    contributor_id = excluded.contributor_id;
 
 -- name: SyncTapeTags :exec
 with deleted as (

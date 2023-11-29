@@ -19,6 +19,7 @@ select
     tape.title,
     tape.year,
     tape.runtime,
+    tape.contributor_id,
     jsonb_agg(jsonb_build_object(
         'index', image.index,
         'color', image.color,
@@ -40,12 +41,13 @@ order by tape.id
 `
 
 type GetTapeRow struct {
-	ID      int32
-	Title   string
-	Year    sql.NullInt32
-	Runtime sql.NullInt32
-	Images  json.RawMessage
-	Tags    []string
+	ID            int32
+	Title         string
+	Year          sql.NullInt32
+	Runtime       sql.NullInt32
+	ContributorID sql.NullString
+	Images        json.RawMessage
+	Tags          []string
 }
 
 func (q *Queries) GetTape(ctx context.Context, tapeID int32) (GetTapeRow, error) {
@@ -56,10 +58,41 @@ func (q *Queries) GetTape(ctx context.Context, tapeID int32) (GetTapeRow, error)
 		&i.Title,
 		&i.Year,
 		&i.Runtime,
+		&i.ContributorID,
 		&i.Images,
 		pq.Array(&i.Tags),
 	)
 	return i, err
+}
+
+const getTapeContributorIds = `-- name: GetTapeContributorIds :many
+select
+    distinct tape.contributor_id::text
+from tapes.tape
+where tape.contributor_id is not null
+`
+
+func (q *Queries) GetTapeContributorIds(ctx context.Context) ([]string, error) {
+	rows, err := q.db.QueryContext(ctx, getTapeContributorIds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var tape_contributor_id string
+		if err := rows.Scan(&tape_contributor_id); err != nil {
+			return nil, err
+		}
+		items = append(items, tape_contributor_id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const getTapes = `-- name: GetTapes :many
@@ -68,6 +101,7 @@ select
     tape.title,
     tape.year,
     tape.runtime,
+    tape.contributor_id,
     jsonb_agg(jsonb_build_object(
         'index', image.index,
         'color', image.color,
@@ -88,12 +122,13 @@ order by tape.id
 `
 
 type GetTapesRow struct {
-	ID      int32
-	Title   string
-	Year    sql.NullInt32
-	Runtime sql.NullInt32
-	Images  json.RawMessage
-	Tags    []string
+	ID            int32
+	Title         string
+	Year          sql.NullInt32
+	Runtime       sql.NullInt32
+	ContributorID sql.NullString
+	Images        json.RawMessage
+	Tags          []string
 }
 
 func (q *Queries) GetTapes(ctx context.Context) ([]GetTapesRow, error) {
@@ -110,6 +145,7 @@ func (q *Queries) GetTapes(ctx context.Context) ([]GetTapesRow, error) {
 			&i.Title,
 			&i.Year,
 			&i.Runtime,
+			&i.ContributorID,
 			&i.Images,
 			pq.Array(&i.Tags),
 		); err != nil {

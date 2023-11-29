@@ -22,6 +22,7 @@ import (
 	"github.com/golden-vcr/tapes/gen/queries"
 	"github.com/golden-vcr/tapes/internal/catalog"
 	"github.com/golden-vcr/tapes/internal/favorites"
+	"github.com/golden-vcr/tapes/internal/users"
 )
 
 type Config struct {
@@ -31,6 +32,8 @@ type Config struct {
 	SpacesBucketName     string `env:"SPACES_BUCKET_NAME" required:"true"`
 	SpacesEndpointOrigin string `env:"SPACES_ENDPOINT_URL" required:"true"`
 
+	TwitchClientId          string `env:"TWITCH_CLIENT_ID" required:"true"`
+	TwitchClientSecret      string `env:"TWITCH_CLIENT_SECRET" required:"true"`
 	TwitchExtensionClientId string `env:"TWITCH_EXTENSION_CLIENT_ID" required:"true"`
 
 	AuthURL string `env:"AUTH_URL" default:"http://localhost:5002"`
@@ -78,6 +81,13 @@ func main() {
 	}
 	q := queries.New(db)
 
+	// We use a simple Twitch API client in order to resolve user-facing display names
+	// (from Twitch User IDs) for tapes that were contributed by a specific user
+	lookup, err := users.NewLookup(config.TwitchClientId, config.TwitchClientSecret)
+	if err != nil {
+		log.Fatalf("error initializing user lookup: %v", err)
+	}
+
 	// Some requests carry a user authorization token identifying the user, which is
 	// required for certain features (e.g. keeping track of users' favorite tapes)
 	authClient := auth.NewClient(config.AuthURL)
@@ -89,7 +99,7 @@ func main() {
 	// VCR Library
 	{
 		imageHostUrl := fmt.Sprintf("https://%s.%s", config.SpacesBucketName, config.SpacesEndpointOrigin)
-		catalogServer := catalog.NewServer(q, imageHostUrl)
+		catalogServer := catalog.NewServer(q, lookup, imageHostUrl)
 		catalogServer.RegisterRoutes(r.PathPrefix("/catalog").Subrouter())
 	}
 

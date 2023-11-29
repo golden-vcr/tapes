@@ -5,26 +5,30 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 
 	"github.com/golden-vcr/tapes/gen/queries"
 	"github.com/golden-vcr/tapes/internal/db"
 	"github.com/golden-vcr/tapes/internal/storage"
+	"github.com/golden-vcr/tapes/internal/users"
 	"github.com/gorilla/mux"
 )
 
 type Queries interface {
 	GetTapes(ctx context.Context) ([]queries.GetTapesRow, error)
 	GetTape(ctx context.Context, tapeID int32) (queries.GetTapeRow, error)
+	GetTapeContributorIds(ctx context.Context) ([]string, error)
 }
 
 type Server struct {
 	q            Queries
+	lookup       users.Lookup
 	imageHostUrl string
 }
 
-func NewServer(q Queries, imageHostUrl string) *Server {
+func NewServer(q Queries, lookup users.Lookup, imageHostUrl string) *Server {
 	return &Server{
 		q:            q,
 		imageHostUrl: imageHostUrl,
@@ -39,6 +43,15 @@ func (s *Server) RegisterRoutes(r *mux.Router) {
 }
 
 func (s *Server) handleGetListing(res http.ResponseWriter, req *http.Request) {
+	userIds, err := s.q.GetTapeContributorIds(req.Context())
+	if err != nil {
+		http.Error(res, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if err := s.lookup.Resolve(req.Context(), userIds); err != nil {
+		fmt.Printf("Error resolving contributor usernames: %v\n", err)
+	}
+
 	rows, err := s.q.GetTapes(req.Context())
 	if err != nil {
 		http.Error(res, err.Error(), http.StatusInternalServerError)
@@ -71,12 +84,17 @@ func (s *Server) handleGetListing(res http.ResponseWriter, req *http.Request) {
 		if row.Runtime.Valid {
 			runtime = int(row.Runtime.Int32)
 		}
+		contributorName := ""
+		if row.ContributorID.Valid {
+			contributorName = s.lookup.GetDisplayName(row.ContributorID.String)
+		}
 		items = append(items, Item{
 			Id:                     int(row.ID),
 			Title:                  row.Title,
 			Year:                   year,
 			RuntimeInMinutes:       runtime,
 			ThumbnailImageFilename: storage.GetImageFilename(int(row.ID), storage.ImageTypeThumbnail, -1),
+			ContributorName:        contributorName,
 			Images:                 galleryImages,
 			Tags:                   row.Tags,
 		})
@@ -113,6 +131,14 @@ func (s *Server) handleGetDetails(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	contributorName := ""
+	if row.ContributorID.Valid {
+		if err := s.lookup.Resolve(req.Context(), []string{row.ContributorID.String}); err != nil {
+			fmt.Printf("Error resolving contributor username: %v\n", err)
+		}
+		contributorName = s.lookup.GetDisplayName(row.ContributorID.String)
+	}
+
 	images, err := db.ParseTapeImageArray(row.Images)
 	if err != nil {
 		http.Error(res, err.Error(), http.StatusInternalServerError)
@@ -143,6 +169,7 @@ func (s *Server) handleGetDetails(res http.ResponseWriter, req *http.Request) {
 		Year:                   year,
 		RuntimeInMinutes:       runtime,
 		ThumbnailImageFilename: storage.GetImageFilename(int(row.ID), storage.ImageTypeThumbnail, -1),
+		ContributorName:        contributorName,
 		Images:                 galleryImages,
 		Tags:                   row.Tags,
 	}

@@ -4,6 +4,7 @@ select
     tape.title,
     tape.year,
     tape.runtime,
+    tape.contributor_id,
     jsonb_agg(jsonb_build_object(
         'index', image.index,
         'color', image.color,
@@ -28,6 +29,7 @@ select
     tape.title,
     tape.year,
     tape.runtime,
+    tape.contributor_id,
     jsonb_agg(jsonb_build_object(
         'index', image.index,
         'color', image.color,
@@ -46,3 +48,9 @@ join tapes.image on image.tape_id = tape.id
 where tape.id = @tape_id
 group by tape.id
 order by tape.id;
+
+-- name: GetTapeContributorIds :many
+select
+    distinct tape.contributor_id::text
+from tapes.tape
+where tape.contributor_id is not null;

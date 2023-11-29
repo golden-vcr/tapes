@@ -17,54 +17,58 @@ func Test_newIndexMap(t *testing.T) {
 	}{
 		{
 			"headings are parsed as expected",
-			[]string{"id", "title", "year", "runtime"},
+			[]string{"id", "title", "year", "runtime", "contributor"},
 			"",
 			indexMap{
-				idColumnIndex:      0,
-				titleColumnIndex:   1,
-				yearColumnIndex:    2,
-				runtimeColumnIndex: 3,
-				columnIndicesByTag: map[string]int{},
+				idColumnIndex:          0,
+				titleColumnIndex:       1,
+				yearColumnIndex:        2,
+				runtimeColumnIndex:     3,
+				contributorColumnIndex: 4,
+				columnIndicesByTag:     map[string]int{},
 			},
 		},
 		{
 			"tags are parsed as expected",
-			[]string{"id", "title", "year", "runtime", "Instructional?", "Arts + Crafts?", "History?"},
+			[]string{"id", "title", "year", "runtime", "contributor", "Instructional?", "Arts + Crafts?", "History?"},
 			"",
 			indexMap{
-				idColumnIndex:      0,
-				titleColumnIndex:   1,
-				yearColumnIndex:    2,
-				runtimeColumnIndex: 3,
+				idColumnIndex:          0,
+				titleColumnIndex:       1,
+				yearColumnIndex:        2,
+				runtimeColumnIndex:     3,
+				contributorColumnIndex: 4,
 				columnIndicesByTag: map[string]int{
-					"instructional": 4,
-					"arts+crafts":   5,
-					"history":       6,
+					"instructional": 5,
+					"arts+crafts":   6,
+					"history":       7,
 				},
 			},
 		},
 		{
 			"order and extra columns are irrelevant",
-			[]string{"", "title", "id", "runtime", "something-else", "padding", "year"},
+			[]string{"", "title", "id", "runtime", "something-else", "padding", "year", "contributor"},
 			"",
 			indexMap{
-				idColumnIndex:      2,
-				titleColumnIndex:   1,
-				yearColumnIndex:    6,
-				runtimeColumnIndex: 3,
-				columnIndicesByTag: map[string]int{},
+				idColumnIndex:          2,
+				titleColumnIndex:       1,
+				yearColumnIndex:        6,
+				runtimeColumnIndex:     3,
+				contributorColumnIndex: 7,
+				columnIndicesByTag:     map[string]int{},
 			},
 		},
 		{
 			"substring match permits mixed case and additional labeling",
-			[]string{"ID", " Title: ", "Year (AD)", "Runtime (min.)"},
+			[]string{"ID", " Title: ", "Year (AD)", "Runtime (min.)", "Contributor (Twitch User)"},
 			"",
 			indexMap{
-				idColumnIndex:      0,
-				titleColumnIndex:   1,
-				yearColumnIndex:    2,
-				runtimeColumnIndex: 3,
-				columnIndicesByTag: map[string]int{},
+				idColumnIndex:          0,
+				titleColumnIndex:       1,
+				yearColumnIndex:        2,
+				runtimeColumnIndex:     3,
+				contributorColumnIndex: 4,
+				columnIndicesByTag:     map[string]int{},
 			},
 		},
 		{
@@ -75,7 +79,7 @@ func Test_newIndexMap(t *testing.T) {
 		},
 		{
 			"duplicate column headings will cause parsing to fail",
-			[]string{"id", "title", "year", "runtime", "Title"},
+			[]string{"id", "title", "year", "runtime", "contributor", "Title"},
 			"duplicate index for 'title' column",
 			indexMap{},
 		},
@@ -137,9 +141,9 @@ func Test_rowValues_read(t *testing.T) {
 }
 
 func Test_parseRow(t *testing.T) {
-	m := indexMap{0, 1, 2, 3, map[string]int{
-		"instructional": 4,
-		"history":       5,
+	m := indexMap{0, 1, 2, 3, 4, map[string]int{
+		"instructional": 5,
+		"history":       6,
 	}}
 	tests := []struct {
 		name    string
@@ -149,7 +153,7 @@ func Test_parseRow(t *testing.T) {
 	}{
 		{
 			"ordinary tape is parsed OK",
-			[]string{"25", "Very cool tape", "1994", "78", "1", ""},
+			[]string{"25", "Very cool tape", "1994", "78", "", "1", ""},
 			"",
 			&Tape{
 				Id:      25,
@@ -160,26 +164,39 @@ func Test_parseRow(t *testing.T) {
 			},
 		},
 		{
+			"tape with contributor is parsed OK",
+			[]string{"25", "Very cool tape", "1994", "78", "12345", "1", ""},
+			"",
+			&Tape{
+				Id:          25,
+				Title:       "Very cool tape",
+				Year:        1994,
+				Runtime:     78,
+				Contributor: "12345",
+				Tags:        []string{"instructional"},
+			},
+		},
+		{
 			"id is required",
-			[]string{"", "Very cool tape", "1994", "78", "1", ""},
+			[]string{"", "Very cool tape", "1994", "78", "", "1", ""},
 			"'id' value is required",
 			nil,
 		},
 		{
 			"id must be an integer",
-			[]string{"foo", "Very cool tape", "1994", "78", "1", ""},
+			[]string{"foo", "Very cool tape", "1994", "78", "", "1", ""},
 			"'id' value must be an integer (got 'foo')",
 			nil,
 		},
 		{
 			"title is required",
-			[]string{"25", "", "1994", "78", "1", ""},
+			[]string{"25", "", "1994", "78", "", "1", ""},
 			"'title' value is required",
 			nil,
 		},
 		{
 			"year is not required and defaults to 0",
-			[]string{"25", "Very cool tape", "", "78", "1", ""},
+			[]string{"25", "Very cool tape", "", "78", "", "1", ""},
 			"",
 			&Tape{
 				Id:      25,
@@ -191,13 +208,13 @@ func Test_parseRow(t *testing.T) {
 		},
 		{
 			"year must be an integer if set",
-			[]string{"25", "Very cool tape", "1988.5", "78", "1", ""},
+			[]string{"25", "Very cool tape", "1988.5", "78", "", "1", ""},
 			"'year' value must be an integer (got '1988.5')",
 			nil,
 		},
 		{
 			"runtime is not required and defaults to 0",
-			[]string{"25", "Very cool tape", "1994", "", "", "1"},
+			[]string{"25", "Very cool tape", "1994", "", "", "", "1"},
 			"",
 			&Tape{
 				Id:      25,
@@ -209,7 +226,7 @@ func Test_parseRow(t *testing.T) {
 		},
 		{
 			"runtime must be an integer if set",
-			[]string{"25", "Very cool tape", "1994", "4h", "1", ""},
+			[]string{"25", "Very cool tape", "1994", "4h", "", "1", ""},
 			"'runtime' value must be an integer (got '4h')",
 			nil,
 		},

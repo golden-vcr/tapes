@@ -208,23 +208,29 @@ func runSync(ctx context.Context, config *Config, q *queries.Queries) (int, []st
 		}
 
 		// Store year and runtime as NULL if not specified
-		yearValue := sql.NullInt32{Valid: false}
+		yearValue := sql.NullInt32{}
 		if tape.Year > 0 {
 			yearValue.Valid = true
 			yearValue.Int32 = int32(tape.Year)
 		}
-		runtimeValue := sql.NullInt32{Valid: false}
+		runtimeValue := sql.NullInt32{}
 		if tape.Runtime > 0 {
 			runtimeValue.Valid = true
 			runtimeValue.Int32 = int32(tape.Runtime)
 		}
+		contributorValue := sql.NullString{}
+		if tape.Contributor != "" {
+			contributorValue.Valid = true
+			contributorValue.String = tape.Contributor
+		}
 
 		// Upsert into the tape table to register our tape with its latest details
 		if err := q.SyncTape(ctx, queries.SyncTapeParams{
-			ID:      int32(tape.Id),
-			Title:   tape.Title,
-			Year:    yearValue,
-			Runtime: runtimeValue,
+			ID:            int32(tape.Id),
+			Title:         tape.Title,
+			Year:          yearValue,
+			Runtime:       runtimeValue,
+			ContributorID: contributorValue,
 		}); err != nil {
 			return -1, nil, fmt.Errorf("failed to sync tape %d: %w", tape.Id, err)
 		}

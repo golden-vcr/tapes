@@ -18,6 +18,9 @@ import (
 )
 
 func Test_Server_handleGetListing(t *testing.T) {
+	lookup := mockLookup{
+		"1234": "JoeBob",
+	}
 	imageHostUrl := "https://my-images.biz"
 	tests := []struct {
 		name       string
@@ -106,11 +109,45 @@ func Test_Server_handleGetListing(t *testing.T) {
 			http.StatusInternalServerError,
 			"mock error",
 		},
+		{
+			"tapes with contributor IDs are handled correctly",
+			&mockQueries{
+				rows: []queries.GetTapesRow{
+					{
+						ID:            1,
+						Title:         "Tape one",
+						Year:          sql.NullInt32{Valid: true, Int32: 1991},
+						Runtime:       sql.NullInt32{Valid: true, Int32: 120},
+						ContributorID: sql.NullString{Valid: true, String: "1234"},
+						Images: encodeTapeImages(t, []db.TapeImage{
+							{
+								Index:   0,
+								Color:   "#ffccee",
+								Width:   440,
+								Height:  1301,
+								Rotated: false,
+							},
+							{
+								Index:   1,
+								Color:   "#eebbee",
+								Width:   441,
+								Height:  1300,
+								Rotated: true,
+							},
+						}),
+						Tags: []string{"fitness", "instructional"},
+					},
+				},
+			},
+			http.StatusOK,
+			`{"imageHost":"https://my-images.biz","items":[{"id":1,"title":"Tape one","year":1991,"runtime":120,"thumbnail":"0001_thumb.jpg","contributor":"JoeBob","images":[{"filename":"0001_a.jpg","width":440,"height":1301,"color":"#ffccee","rotated":false},{"filename":"0001_b.jpg","width":441,"height":1300,"color":"#eebbee","rotated":true}],"tags":["fitness","instructional"]}]}`,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &Server{
 				q:            tt.q,
+				lookup:       lookup,
 				imageHostUrl: imageHostUrl,
 			}
 			req := httptest.NewRequest(http.MethodGet, "/", nil)
@@ -127,6 +164,9 @@ func Test_Server_handleGetListing(t *testing.T) {
 }
 
 func Test_Server_handleGetDetails(t *testing.T) {
+	lookup := mockLookup{
+		"1234": "JoeBob",
+	}
 	imageHostUrl := "https://my-images.biz"
 	tests := []struct {
 		name       string
@@ -245,11 +285,46 @@ func Test_Server_handleGetDetails(t *testing.T) {
 			http.StatusNotFound,
 			"no such tape",
 		},
+		{
+			"tape with contributor ID is handled correctly",
+			1,
+			&mockQueries{
+				rows: []queries.GetTapesRow{
+					{
+						ID:            1,
+						Title:         "Tape one",
+						Year:          sql.NullInt32{Valid: true, Int32: 1991},
+						Runtime:       sql.NullInt32{Valid: true, Int32: 120},
+						ContributorID: sql.NullString{Valid: true, String: "1234"},
+						Images: encodeTapeImages(t, []db.TapeImage{
+							{
+								Index:   0,
+								Color:   "#ffccee",
+								Width:   440,
+								Height:  1301,
+								Rotated: false,
+							},
+							{
+								Index:   1,
+								Color:   "#eebbee",
+								Width:   441,
+								Height:  1300,
+								Rotated: true,
+							},
+						}),
+						Tags: []string{"fitness", "instructional"},
+					},
+				},
+			},
+			http.StatusOK,
+			`{"id":1,"title":"Tape one","year":1991,"runtime":120,"thumbnail":"0001_thumb.jpg","contributor":"JoeBob","images":[{"filename":"0001_a.jpg","width":440,"height":1301,"color":"#ffccee","rotated":false},{"filename":"0001_b.jpg","width":441,"height":1300,"color":"#eebbee","rotated":true}],"tags":["fitness","instructional"]}`,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &Server{
 				q:            tt.q,
+				lookup:       lookup,
 				imageHostUrl: imageHostUrl,
 			}
 			req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/%d", tt.tapeId), nil)
@@ -287,16 +362,31 @@ func (m *mockQueries) GetTape(ctx context.Context, tapeID int32) (queries.GetTap
 	for _, row := range m.rows {
 		if row.ID == tapeID {
 			return queries.GetTapeRow{
-				ID:      row.ID,
-				Title:   row.Title,
-				Year:    row.Year,
-				Runtime: row.Runtime,
-				Images:  row.Images,
-				Tags:    row.Tags,
+				ID:            row.ID,
+				Title:         row.Title,
+				Year:          row.Year,
+				Runtime:       row.Runtime,
+				ContributorID: row.ContributorID,
+				Images:        row.Images,
+				Tags:          row.Tags,
 			}, nil
 		}
 	}
 	return queries.GetTapeRow{}, sql.ErrNoRows
+}
+
+func (m *mockQueries) GetTapeContributorIds(ctx context.Context) ([]string, error) {
+	contributorIdsSet := make(map[string]struct{})
+	for _, row := range m.rows {
+		if row.ContributorID.Valid {
+			contributorIdsSet[row.ContributorID.String] = struct{}{}
+		}
+	}
+	contributorIds := make([]string, 0, len(contributorIdsSet))
+	for id := range contributorIdsSet {
+		contributorIds = append(contributorIds, id)
+	}
+	return contributorIds, nil
 }
 
 var _ Queries = (*mockQueries)(nil)
@@ -305,4 +395,17 @@ func encodeTapeImages(t *testing.T, images []db.TapeImage) json.RawMessage {
 	data, err := json.Marshal(images)
 	assert.NoError(t, err)
 	return data
+}
+
+type mockLookup map[string]string
+
+func (m mockLookup) Resolve(ctx context.Context, ids []string) error {
+	return nil
+}
+
+func (m mockLookup) GetDisplayName(id string) string {
+	if name, ok := m[id]; ok {
+		return name
+	}
+	return fmt.Sprintf("User %s", id)
 }

@@ -11,6 +11,8 @@ type Tape struct {
 	Year int
 	// Approximate runtime of the tape in minutes, or 0 if unknown
 	Runtime int
+	// Twitch User ID of the viewer who sent in this tape, if any
+	Contributor string
 	// Tags that have been applied to this tape in the spreadsheet
 	Tags []string
 }

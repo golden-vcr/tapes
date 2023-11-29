@@ -10,31 +10,34 @@ import (
 // labeled in the first row with these values, which we check for using a
 // case-insensitive substring search
 const (
-	columnHeadingSubstringId      = "id"
-	columnHeadingSubstringTitle   = "title"
-	columnHeadingSubstringYear    = "year"
-	columnHeadingSubstringRuntime = "runtime"
+	columnHeadingSubstringId          = "id"
+	columnHeadingSubstringTitle       = "title"
+	columnHeadingSubstringYear        = "year"
+	columnHeadingSubstringRuntime     = "runtime"
+	columnHeadingSubstringContributor = "contributor"
 )
 
 // indexMap is a lookup that tells us which column index in the spreadsheet (0 for A,
 // 1 for B, etc.) contains the each of the values we want to parse
 type indexMap struct {
-	idColumnIndex      int
-	titleColumnIndex   int
-	yearColumnIndex    int
-	runtimeColumnIndex int
-	columnIndicesByTag map[string]int
+	idColumnIndex          int
+	titleColumnIndex       int
+	yearColumnIndex        int
+	runtimeColumnIndex     int
+	contributorColumnIndex int
+	columnIndicesByTag     map[string]int
 }
 
 // newIndexMap builds an indexMap given the values in the first row of a spreadsheet, or
 // returns an error if unable to find a matching column heading for each value
 func newIndexMap(values []string) (indexMap, error) {
 	m := indexMap{
-		idColumnIndex:      -1,
-		titleColumnIndex:   -1,
-		yearColumnIndex:    -1,
-		runtimeColumnIndex: -1,
-		columnIndicesByTag: make(map[string]int),
+		idColumnIndex:          -1,
+		titleColumnIndex:       -1,
+		yearColumnIndex:        -1,
+		runtimeColumnIndex:     -1,
+		contributorColumnIndex: -1,
+		columnIndicesByTag:     make(map[string]int),
 	}
 	setIndex := func(name string, p *int, value int) error {
 		if *p >= 0 {
@@ -61,6 +64,10 @@ func newIndexMap(values []string) (indexMap, error) {
 			if err := setIndex("runtime", &m.runtimeColumnIndex, i); err != nil {
 				return m, err
 			}
+		} else if strings.Contains(heading, columnHeadingSubstringContributor) {
+			if err := setIndex("contributor", &m.contributorColumnIndex, i); err != nil {
+				return m, err
+			}
 		} else if tagName := parseTagHeading(heading); tagName != "" {
 			m.columnIndicesByTag[tagName] = i
 		}
@@ -76,6 +83,9 @@ func newIndexMap(values []string) (indexMap, error) {
 	}
 	if m.runtimeColumnIndex == -1 {
 		return m, fmt.Errorf("could not resolve 'runtime' column")
+	}
+	if m.contributorColumnIndex == -1 {
+		return m, fmt.Errorf("could not resolve 'contributor' column")
 	}
 	return m, nil
 }
@@ -142,6 +152,10 @@ func (m *indexMap) parseRow(values rowValues) (*Tape, error) {
 		runtime = runtimeAsInt
 	}
 
+	// Twitch User ID in 'contributor' column is set only if tape was sent in by a
+	// viewer
+	contributor := values.read(m.contributorColumnIndex)
+
 	// In columns for tags, any non-empty value indicates that the tape should have that
 	// tag
 	tags := make([]string, 0, 4)
@@ -152,10 +166,11 @@ func (m *indexMap) parseRow(values rowValues) (*Tape, error) {
 	}
 
 	return &Tape{
-		Id:      id,
-		Title:   title,
-		Year:    year,
-		Runtime: runtime,
-		Tags:    tags,
+		Id:          id,
+		Title:       title,
+		Year:        year,
+		Runtime:     runtime,
+		Contributor: contributor,
+		Tags:        tags,
 	}, nil
 }

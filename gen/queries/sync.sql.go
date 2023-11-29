@@ -118,25 +118,29 @@ insert into tapes.tape (
     created_at,
     title,
     year,
-    runtime
+    runtime,
+    contributor_id
 ) values (
     $1,
     now(),
     $2,
     $3,
-    $4
+    $4,
+    $5
 )
 on conflict (id) do update set
     title = excluded.title,
     year = excluded.year,
-    runtime = excluded.runtime
+    runtime = excluded.runtime,
+    contributor_id = excluded.contributor_id
 `
 
 type SyncTapeParams struct {
-	ID      int32
-	Title   string
-	Year    sql.NullInt32
-	Runtime sql.NullInt32
+	ID            int32
+	Title         string
+	Year          sql.NullInt32
+	Runtime       sql.NullInt32
+	ContributorID sql.NullString
 }
 
 func (q *Queries) SyncTape(ctx context.Context, arg SyncTapeParams) error {
@@ -145,6 +149,7 @@ func (q *Queries) SyncTape(ctx context.Context, arg SyncTapeParams) error {
 		arg.Title,
 		arg.Year,
 		arg.Runtime,
+		arg.ContributorID,
 	)
 	return err
 }

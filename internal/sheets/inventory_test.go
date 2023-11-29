@@ -26,9 +26,9 @@ func Test_ListTapes(t *testing.T) {
 		{
 			"normal sheet is parsed OK",
 			&mockClient{values: [][]string{
-				{"id", "title", "year", "runtime"},
-				{"1", "Tape one", "1991", "60"},
-				{"2", "Tape two", "", ""},
+				{"id", "title", "year", "runtime", "contributor"},
+				{"1", "Tape one", "1991", "60", ""},
+				{"2", "Tape two", "", "", ""},
 			}},
 			"",
 			[]Warning{},
@@ -50,9 +50,9 @@ func Test_ListTapes(t *testing.T) {
 		{
 			"missing columns is a fatal error",
 			&mockClient{values: [][]string{
-				{"", "title", "year", "runtime"},
-				{"1", "Tape one", "1991", "60"},
-				{"2", "Tape two", "", ""},
+				{"", "title", "year", "runtime", "contributor"},
+				{"1", "Tape one", "1991", "60", ""},
+				{"2", "Tape two", "", "", ""},
 			}},
 			"failed to parse headings from first row of inventory spreadsheet: could not resolve 'id' column",
 			nil,
@@ -68,7 +68,7 @@ func Test_ListTapes(t *testing.T) {
 		{
 			"spreadsheet with valid headings but no rows is OK",
 			&mockClient{values: [][]string{
-				{"id", "title", "year", "runtime"},
+				{"id", "title", "year", "runtime", "contributor"},
 			}},
 			"",
 			[]Warning{},
@@ -77,9 +77,9 @@ func Test_ListTapes(t *testing.T) {
 		{
 			"rows that can't be parsed are ignored and result in a warning",
 			&mockClient{values: [][]string{
-				{"id", "title", "year", "runtime"},
-				{"1", "Tape one", "199X", "60"},
-				{"2", "Tape two", "", ""},
+				{"id", "title", "year", "runtime", "contributor"},
+				{"1", "Tape one", "199X", "60", ""},
+				{"2", "Tape two", "", "", ""},
 			}},
 			"",
 			[]Warning{
@@ -99,10 +99,10 @@ func Test_ListTapes(t *testing.T) {
 		{
 			"tapes with duplicate IDs are ignored and result in a warning",
 			&mockClient{values: [][]string{
-				{"id", "title", "year", "runtime"},
-				{"1", "Tape one", "1991", "60"},
-				{"2", "Tape two", "", ""},
-				{"2", "Tape three", "", ""},
+				{"id", "title", "year", "runtime", "contributor"},
+				{"1", "Tape one", "1991", "60", ""},
+				{"2", "Tape two", "", "", ""},
+				{"2", "Tape three", "", "", ""},
 			}},
 			"",
 			[]Warning{
