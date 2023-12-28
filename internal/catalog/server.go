@@ -96,6 +96,7 @@ func (s *Server) handleGetListing(res http.ResponseWriter, req *http.Request) {
 			RuntimeInMinutes:       runtime,
 			ThumbnailImageFilename: storage.GetImageFilename(int(row.ID), storage.ImageTypeThumbnail, -1),
 			ContributorName:        contributorName,
+			NumFavorites:           int(row.NumFavorites),
 			Images:                 galleryImages,
 			Tags:                   row.Tags,
 		})
@@ -171,6 +172,7 @@ func (s *Server) handleGetDetails(res http.ResponseWriter, req *http.Request) {
 		RuntimeInMinutes:       runtime,
 		ThumbnailImageFilename: storage.GetImageFilename(int(row.ID), storage.ImageTypeThumbnail, -1),
 		ContributorName:        contributorName,
+		NumFavorites:           int(row.NumFavorites),
 		Images:                 galleryImages,
 		Tags:                   row.Tags,
 	}

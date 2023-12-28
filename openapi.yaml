@@ -142,6 +142,14 @@ components:
           type: string
           description: Filename of thumbanil image, served relative to imageHost URL
           example: 0013_thumb.jpg
+        contributor:
+          type: string
+          description: Twitch username of the person who sent in the tape, if applicable
+          example: BigJoeBob
+        numFavorites:
+          type: integer
+          description: Number of users who have marked this tape as a favorite
+          example: 12
         images:
           type: array
           description: Array of one or more full-sized gallery images scanned from this tape

@@ -5,6 +5,7 @@ select
     tape.year,
     tape.runtime,
     tape.contributor_id,
+    (select count(*) from tapes.favorite where favorite.tape_id = tape.id) as num_favorites,
     jsonb_agg(jsonb_build_object(
         'index', image.index,
         'color', image.color,
@@ -30,6 +31,7 @@ select
     tape.year,
     tape.runtime,
     tape.contributor_id,
+    (select count(*) from tapes.favorite where favorite.tape_id = tape.id) as num_favorites,
     jsonb_agg(jsonb_build_object(
         'index', image.index,
         'color', image.color,

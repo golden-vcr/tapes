@@ -20,6 +20,7 @@ select
     tape.year,
     tape.runtime,
     tape.contributor_id,
+    (select count(*) from tapes.favorite where favorite.tape_id = tape.id) as num_favorites,
     jsonb_agg(jsonb_build_object(
         'index', image.index,
         'color', image.color,
@@ -46,6 +47,7 @@ type GetTapeRow struct {
 	Year          sql.NullInt32
 	Runtime       sql.NullInt32
 	ContributorID sql.NullString
+	NumFavorites  int64
 	Images        json.RawMessage
 	Tags          []string
 }
@@ -59,6 +61,7 @@ func (q *Queries) GetTape(ctx context.Context, tapeID int32) (GetTapeRow, error)
 		&i.Year,
 		&i.Runtime,
 		&i.ContributorID,
+		&i.NumFavorites,
 		&i.Images,
 		pq.Array(&i.Tags),
 	)
@@ -102,6 +105,7 @@ select
     tape.year,
     tape.runtime,
     tape.contributor_id,
+    (select count(*) from tapes.favorite where favorite.tape_id = tape.id) as num_favorites,
     jsonb_agg(jsonb_build_object(
         'index', image.index,
         'color', image.color,
@@ -127,6 +131,7 @@ type GetTapesRow struct {
 	Year          sql.NullInt32
 	Runtime       sql.NullInt32
 	ContributorID sql.NullString
+	NumFavorites  int64
 	Images        json.RawMessage
 	Tags          []string
 }
@@ -146,6 +151,7 @@ func (q *Queries) GetTapes(ctx context.Context) ([]GetTapesRow, error) {
 			&i.Year,
 			&i.Runtime,
 			&i.ContributorID,
+			&i.NumFavorites,
 			&i.Images,
 			pq.Array(&i.Tags),
 		); err != nil {

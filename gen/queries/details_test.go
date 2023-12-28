@@ -55,6 +55,13 @@ func Test_GetTapes(t *testing.T) {
 	querytest.AssertCount(t, tx, 2, "SELECT COUNT(*) FROM tapes.tape_to_tag")
 	querytest.AssertCount(t, tx, 2, "SELECT COUNT(*) FROM tapes.image")
 
+	_, err = tx.Exec(`
+		INSERT INTO tapes.favorite (tape_id, twitch_user_id) VALUES
+			(1, 12345),
+			(1, 56789)
+	`)
+	assert.NoError(t, err)
+
 	rows, err := q.GetTapes(context.Background())
 	assert.NoError(t, err)
 	assert.Len(t, rows, 1)
@@ -62,6 +69,7 @@ func Test_GetTapes(t *testing.T) {
 	row := rows[0]
 	assert.Equal(t, int32(1), row.ID)
 	assert.Equal(t, "Tape one", row.Title)
+	assert.Equal(t, int64(2), row.NumFavorites)
 	assert.Equal(t, sql.NullInt32{Valid: true, Int32: 1994}, row.Year)
 	assert.Equal(t, sql.NullInt32{}, row.Runtime)
 	images, err := db.ParseTapeImageArray(row.Images)
