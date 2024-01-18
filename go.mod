@@ -6,7 +6,7 @@ require (
 	github.com/aws/aws-sdk-go v1.45.4
 	github.com/codingconcepts/env v0.0.0-20200821220118-a8fbf8d84482
 	github.com/golden-vcr/auth v0.0.0-20231016171253-54e363f981f1
-	github.com/golden-vcr/server-common v0.5.3
+	github.com/golden-vcr/server-common v0.5.4
 	github.com/google/uuid v1.4.0
 	github.com/gorilla/mux v1.8.0
 	github.com/joho/godotenv v1.5.1
