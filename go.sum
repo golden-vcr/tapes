@@ -9,8 +9,8 @@ github.com/golang-jwt/jwt/v4 v4.0.0 h1:RAqyYixv1p7uEnocuy8P1nru5wprCh/MH2BIlW5z5
 github.com/golang-jwt/jwt/v4 v4.0.0/go.mod h1:/xlHOz8bRuivTWchD4jCa+NbatV+wEUSzwAxVc6locg=
 github.com/golden-vcr/auth v0.0.0-20231016171253-54e363f981f1 h1:VVwydKmDQuOXiIifn9BJck0di57Brp6lpBnkUUzYvqE=
 github.com/golden-vcr/auth v0.0.0-20231016171253-54e363f981f1/go.mod h1:ah8wcbxs+iE9qz9Pv90Tvm00A2LGwuJBpawMShQFDJk=
-github.com/golden-vcr/server-common v0.5.2 h1:ESnlKwqITA6zSAfTduNDW3qb94Av9hx8SR/IMtrhTJk=
-github.com/golden-vcr/server-common v0.5.2/go.mod h1:hhTCD/1L+HM9D9CdarR4o5MNaIDDxU29sns4AYrGCk8=
+github.com/golden-vcr/server-common v0.5.3 h1:7nNuMmqTwj5aevRlPA/cUgbLCgOnJPujtPDW2RbFaTY=
+github.com/golden-vcr/server-common v0.5.3/go.mod h1:hhTCD/1L+HM9D9CdarR4o5MNaIDDxU29sns4AYrGCk8=
 github.com/google/uuid v1.4.0 h1:MtMxsa51/r9yyhkyLsVeVt0B+BGQZzpQiTQ4eHZ8bc4=
 github.com/google/uuid v1.4.0/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+yHo=
 github.com/gorilla/mux v1.8.0 h1:i40aqfkR1h2SlN9hojwV5ZA91wcXFOvkdNIeFDP5koI=
