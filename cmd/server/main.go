@@ -83,7 +83,10 @@ func main() {
 
 	// Some requests carry a user authorization token identifying the user, which is
 	// required for certain features (e.g. keeping track of users' favorite tapes)
-	authClient := auth.NewClient(config.AuthURL)
+	authClient, err := auth.NewClient(app.Context(), config.AuthURL)
+	if err != nil {
+		app.Fail("Failed to initialize auth client", err)
+	}
 
 	// Start setting up our HTTP handlers, using gorilla/mux for routing
 	r := mux.NewRouter()

@@ -57,7 +57,7 @@ func Test_Server_handleGetFavorites(t *testing.T) {
 				q: tt.q,
 			}
 			handler := auth.RequireAccess(
-				authmock.NewClient().Allow("mock-token", auth.RoleViewer, auth.UserDetails{
+				authmock.NewClient().AllowTwitchUserAccessToken("mock-token", auth.RoleViewer, auth.UserDetails{
 					Id:          "54321",
 					Login:       "jerry",
 					DisplayName: "Jerry",
@@ -183,7 +183,7 @@ func Test_Server_handlePatchFavorites(t *testing.T) {
 				q: tt.q,
 			}
 			handler := auth.RequireAccess(
-				authmock.NewClient().Allow("mock-token", auth.RoleViewer, auth.UserDetails{
+				authmock.NewClient().AllowTwitchUserAccessToken("mock-token", auth.RoleViewer, auth.UserDetails{
 					Id:          "54321",
 					Login:       "jerry",
 					DisplayName: "Jerry",
