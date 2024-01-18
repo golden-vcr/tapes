@@ -41,7 +41,7 @@ type Config struct {
 }
 
 func main() {
-	app := entry.NewApplication("auth")
+	app := entry.NewApplication("tapes")
 	defer app.Stop()
 
 	// Parse config from environment variables
