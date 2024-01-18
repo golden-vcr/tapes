@@ -1,24 +1,18 @@
 package main
 
 import (
-	"context"
 	"database/sql"
 	"fmt"
-	"log"
-	"net/http"
 	"os"
-	"os/signal"
-	"syscall"
 
 	"github.com/codingconcepts/env"
 	"github.com/gorilla/mux"
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
-	"github.com/rs/cors"
-	"golang.org/x/sync/errgroup"
 
 	"github.com/golden-vcr/auth"
 	"github.com/golden-vcr/server-common/db"
+	"github.com/golden-vcr/server-common/entry"
 	"github.com/golden-vcr/tapes/gen/queries"
 	"github.com/golden-vcr/tapes/internal/catalog"
 	"github.com/golden-vcr/tapes/internal/favorites"
@@ -47,19 +41,18 @@ type Config struct {
 }
 
 func main() {
+	app := entry.NewApplication("auth")
+	defer app.Stop()
+
 	// Parse config from environment variables
 	err := godotenv.Load()
 	if err != nil && !os.IsNotExist(err) {
-		log.Fatalf("error loading .env file: %v", err)
+		app.Fail("Failed to load .env file", err)
 	}
 	config := Config{}
 	if err := env.Set(&config); err != nil {
-		log.Fatalf("error loading config: %v", err)
+		app.Fail("Failed to load config", err)
 	}
-
-	// Shut down cleanly on signal
-	ctx, close := signal.NotifyContext(context.Background(), os.Interrupt, os.Kill, syscall.SIGTERM)
-	defer close()
 
 	// Configure our database connection and initialize a Queries struct, so we can read
 	// from the 'tapes' schema in response to HTTP requests
@@ -73,11 +66,11 @@ func main() {
 	)
 	db, err := sql.Open("postgres", connectionString)
 	if err != nil {
-		log.Fatalf("error opening database: %v", err)
+		app.Fail("Failed to open sql.DB", err)
 	}
 	defer db.Close()
 	if err := db.Ping(); err != nil {
-		log.Fatalf("error connecting to database: %v", err)
+		app.Fail("Failed to connect to database", err)
 	}
 	q := queries.New(db)
 
@@ -85,7 +78,7 @@ func main() {
 	// (from Twitch User IDs) for tapes that were contributed by a specific user
 	lookup, err := users.NewLookup(config.TwitchClientId, config.TwitchClientSecret)
 	if err != nil {
-		log.Fatalf("error initializing user lookup: %v", err)
+		app.Fail("Failed to initialize user lookup", err)
 	}
 
 	// Some requests carry a user authorization token identifying the user, which is
@@ -111,34 +104,5 @@ func main() {
 		favoritesServer.RegisterRoutes(authClient, r.PathPrefix("/favorites").Subrouter())
 	}
 
-	// Inject CORS support, allowing the Twitch-hosted extension to make read-only
-	// requests to all tapes API endpoints
-	withCors := cors.New(cors.Options{
-		AllowedOrigins: []string{
-			"https://localhost:5180",
-			fmt.Sprintf("https://%s.ext-twitch.tv", config.TwitchExtensionClientId),
-		},
-		AllowedMethods: []string{http.MethodGet},
-	})
-	addr := fmt.Sprintf("%s:%d", config.BindAddr, config.ListenPort)
-	server := &http.Server{Addr: addr, Handler: withCors.Handler(r)}
-
-	// Handle incoming HTTP connections until our top-level context is canceled, at
-	// which point shut down cleanly
-	fmt.Printf("Listening on %s...\n", addr)
-	var wg errgroup.Group
-	wg.Go(server.ListenAndServe)
-
-	select {
-	case <-ctx.Done():
-		fmt.Printf("Received signal; closing server...\n")
-		server.Shutdown(context.Background())
-	}
-
-	err = wg.Wait()
-	if err == http.ErrServerClosed {
-		fmt.Printf("Server closed.\n")
-	} else {
-		log.Fatalf("error running server: %v", err)
-	}
+	entry.RunServer(app, r, config.BindAddr, int(config.ListenPort))
 }
