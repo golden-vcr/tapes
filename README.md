@@ -30,9 +30,9 @@ On a Linux or WSL system:
    server is running locally.
 4. From the root of this repository:
     - Run [`./db-migrate.sh`](./db-migrate.sh) to apply database migrations.
-    - Run [`go run cmd/sync/main.go`](./cmd/sync/main.go) to sync tape data from the
+    - Run [`go run ./cmd/sync`](./cmd/sync/main.go) to sync tape data from the
       spreadsheet to the local database.
-    - Run [`go run cmd/server/main.go`](./cmd/server/main.go) to start up the server.
+    - Run [`go run ./cmd/server`](./cmd/server/main.go) to start up the server.
 
 Once done, the tapes server will be running at http://localhost:5000.
 
