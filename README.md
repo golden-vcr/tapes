@@ -12,50 +12,28 @@ tape, and where they can be found. Tape images are stored in an S3-compatible bu
 DigitalOcean Spaces: this application uses the AWS SDK to query that bucket for a
 listing of image files.
 
-## Prerequisites
+## Development Guide
 
-Install [Go 1.21](https://go.dev/doc/install). If successful, you should be able to run:
+On a Linux or WSL system:
 
-```
-> go version
-go version go1.21.0 windows/amd64
-```
+1. Install [Go 1.21](https://go.dev/doc/install)
+2. Clone the [**terraform**](https://github.com/golden-vcr/terraform) repo alongside
+   this one, and from the root of that repo:
+    - Ensure that the module is initialized (via `terraform init`)
+    - Ensure that valid terraform state is present
+    - Run `terraform output -raw env_tapes > ../tapes/.env` to populate an `.env` file.
+    - Run [`./local-db.sh up`](https://github.com/golden-vcr/terraform/blob/main/local-db.sh)
+      to ensure that a Postgres server is running locally (requires
+      [Docker](https://docs.docker.com/engine/install/)).
+3. Ensure that the [**auth**](https://github.com/golden-vcr/auth?tab=readme-ov-file#development-guide)
+   server is running locally.
+4. From the root of this repository:
+    - Run [`./db-migrate.sh`](./db-migrate.sh) to apply database migrations.
+    - Run [`go run cmd/sync/main.go`](./cmd/sync/main.go) to sync tape data from the
+      spreadsheet to the local database.
+    - Run [`go run cmd/server/main.go`](./cmd/server/main.go) to start up the server.
 
-## Initial setup
-
-Create a file in the root of this repo called `.env` that contains the environment
-variables required in [`main.go`](./cmd/server/main.go). If you have the
-[`terraform`](https://github.com/golden-vcr/terraform) repo cloned alongside this one,
-simply open a shell there and run:
-
-- `terraform output -raw sheets_api_env > ../tapes/.env`
-- `terraform output -raw twitch_extension_client_env >> ../tapes/.env`
-- `terraform output -raw images_s3_env >> ../tapes/.env`
-- `./local-db.sh env >> ../showtime/.env`
-
-### Running the database
-
-This API stores persistent data in a PostgreSQL database. When running in a live
-environment, each API has its own database, and connection details are configured from
-Terraform secrets via .env files.
-
-For local development, we run a self-contained postgres database in Docker, and all
-server-side applications share the same set of throwaway credentials.
-
-We use a script in the [`terraform`](https://github.com/golden-vcr/terraform) repo,
-called `./local-db.sh`, to manage this local database. To start up a fresh database and
-apply migrations, run:
-
-- _(from `terraform`:)_ `./local-db.sh up`
-- _(from `tapes`:)_ `./db-migrate.sh`
-- _(from `tapes`:)_: `go run cmd/sync/main.go`
-
-The `sync` command fetches tape metadata (from the Google Sheets API) and image
-metadata (from the S3-compatible DigitalOcean Spaces bucket) and stores those details
-in the database.
-
-If you need to blow away your local database and start over, just run
-`./local-db.sh down` and repeat these steps.
+Once done, the tapes server will be running at http://localhost:5000.
 
 ### Generating database queries
 
@@ -63,25 +41,3 @@ If you modify the SQL code in [`db/queries`](./db/queries/), you'll need to gene
 new Go code to [`gen/queries`](./gen/queries/). To do so, simply run:
 
 - `./db-generate-queries.sh`
-
-### Running
-
-Once your `.env` file is populated, you should be able to build and run the server:
-
-- `go run cmd/server/main.go`
-
-If successful, you should be able to run `curl http://localhost:5000/` and get a
-JSON array containing tape data fetched from the local database.
-
-## Auth dependency
-
-Note that in order to call endpoints that require authorization, you'll need to be
-running the [auth](https://github.com/golden-vcr/auth) API locally as well. By default,
-**tapes** is configured to reach the auth server via its default URL of
-`http://localhost:5002`, so it's sufficient to simply `go run cmd/server/main.go` from
-both repos.
-
-In production, **tapes** and **auth** currently run alongside each other on a single
-DigitalOcean droplet, with auth listening on 5002, so no further configuration is
-necessary. If we scale up beyond a single host, then showtime should be configured with
-an appropriate `AUTH_URL` value to hit the production auth server.
