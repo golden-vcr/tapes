@@ -4,6 +4,7 @@ select
     tape.title,
     tape.year,
     tape.runtime,
+    tape.series_name,
     tape.contributor_id,
     (select count(*) from tapes.favorite where favorite.tape_id = tape.id) as num_favorites,
     jsonb_agg(jsonb_build_object(
@@ -30,6 +31,7 @@ select
     tape.title,
     tape.year,
     tape.runtime,
+    tape.series_name,
     tape.contributor_id,
     (select count(*) from tapes.favorite where favorite.tape_id = tape.id) as num_favorites,
     jsonb_agg(jsonb_build_object(

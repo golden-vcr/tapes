@@ -64,6 +64,7 @@ type TapesTape struct {
 	Runtime sql.NullInt32
 	// Twitch User ID of the viewer who contributed this tape to the library, if any.
 	ContributorID sql.NullString
+	SeriesName    string
 }
 
 // Association of a specific tag name with a given tape.

@@ -11,6 +11,7 @@ type Item struct {
 	Year                   int            `json:"year"`
 	RuntimeInMinutes       int            `json:"runtime"`
 	ThumbnailImageFilename string         `json:"thumbnail"`
+	SeriesName             string         `json:"series,omitempty"`
 	ContributorName        string         `json:"contributor,omitempty"`
 	NumFavorites           int            `json:"numFavorites"`
 	Images                 []GalleryImage `json:"images"`

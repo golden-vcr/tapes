@@ -14,6 +14,7 @@ import (
 	"github.com/golden-vcr/server-common/db"
 	"github.com/golden-vcr/server-common/entry"
 	"github.com/golden-vcr/tapes/gen/queries"
+	"github.com/golden-vcr/tapes/internal/admin"
 	"github.com/golden-vcr/tapes/internal/catalog"
 	"github.com/golden-vcr/tapes/internal/favorites"
 	"github.com/golden-vcr/tapes/internal/users"
@@ -105,6 +106,12 @@ func main() {
 	{
 		favoritesServer := favorites.NewServer(q)
 		favoritesServer.RegisterRoutes(authClient, r.PathPrefix("/favorites").Subrouter())
+	}
+
+	// Quick and dirty endpoints for managing tape data as the broadcaster
+	{
+		adminServer := admin.NewServer(q)
+		adminServer.RegisterRoutes(authClient, r.PathPrefix("/admin").Subrouter())
 	}
 
 	entry.RunServer(app, r, config.BindAddr, int(config.ListenPort))
