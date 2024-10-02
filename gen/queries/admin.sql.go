@@ -14,7 +14,7 @@ import (
 
 const applySeries = `-- name: ApplySeries :execresult
 update tapes.tape set series_name = $1
-where tape.id in ($2::integer[])
+where tape.id = any($2::integer[])
 `
 
 type ApplySeriesParams struct {
